@@ -219,13 +219,13 @@ export const PROGRAM_STAGE = { id: '$stageUid', name: 'GMB ANC Visit' }
 export const TRACKED_ENTITY_TYPE = 'nEenWmSyUEp'
 
 export const ORG_UNITS = {
-    theGambia:                     '$gid',
-    serrекundaGeneralHospital:     '$h1',
-    brikamаHealthCentre:           '$h2',
-    royalVictoriaTeachingHospital: '$h3',
-    edwardFrancisSmall:            '$h4',
-    farafenniHospital:             '$h5',
-    bundungMCH:                    '$h6',
+    theGambia:        '$gid',
+    serrекundaGH:     '$h1',
+    brikаmaHC:        '$h2',
+    royalVictoria:    '$h3',
+    edwardFrancis:    '$h4',
+    farafenni:        '$h5',
+    bundungMCH:       '$h6',
 }
 
 export const ATTRIBUTES = {

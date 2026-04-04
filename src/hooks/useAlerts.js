@@ -1,165 +1,140 @@
 // src/hooks/useAlerts.js
-// ─────────────────────────────────────────────────────────────────────────────
-// Fetches all enrolled patients + their latest ANC visit events from DHIS2,
-// runs the risk engine on each one, and returns only those flagged as
-// high or moderate risk, sorted by score descending.
-//
-// API calls:
-//   GET /api/trackedEntityInstances  → patients with attributes
-//   GET /api/events                  → ANC visit records
-//   GET /api/organisationUnits       → facility name lookup
-// ─────────────────────────────────────────────────────────────────────────────
-
 import { useDataQuery } from '@dhis2/app-runtime'
-import { useMemo }      from 'react'
+import { useMemo } from 'react'
 import { assessRisk, RISK_LEVELS } from '../services/riskEngine.js'
-import {
-  PROGRAM,
-  PROGRAM_STAGE,
-  ATTRIBUTES,
-  DATA_ELEMENTS,
-} from '../config/dhis2.js'
+import { PROGRAM, PROGRAM_STAGE, ATTRIBUTES, DATA_ELEMENTS } from '../config/dhis2.js'
 
-// ── DHIS2 queries ─────────────────────────────────────────────────────────────
-
-const TEI_QUERY = {
-  patients: {
-    resource: 'trackedEntityInstances',
-    params: {
-      program: PROGRAM.id,
-      fields:  [
-        'trackedEntityInstance',
-        'orgUnit',
-        'attributes[attribute,value]',
-        'enrollments[enrollment,enrollmentDate,orgUnit,orgUnitName]',
-      ].join(','),
-      ouMode:  'ACCESSIBLE',
-      paging:  false,
+const PATIENTS_QUERY = {
+    patients: {
+        resource: 'tracker/trackedEntities',
+        params: {
+            program: PROGRAM.id,
+            ouMode:  'ACCESSIBLE',
+            fields:  'trackedEntity,orgUnit,attributes,enrollments[enrollment,enrolledAt,orgUnit,orgUnitName,status]',
+            paging:  false,
+        },
     },
-  },
 }
 
 const EVENTS_QUERY = {
-  events: {
-    resource: 'events',
-    params: {
-      program:      PROGRAM.id,
-      programStage: PROGRAM_STAGE.id,
-      fields:       'event,trackedEntityInstance,eventDate,orgUnit,orgUnitName,dataValues[dataElement,value]',
-      ouMode:       'ACCESSIBLE',
-      paging:       false,
+    events: {
+        resource: 'tracker/events',
+        params: {
+            program:      PROGRAM.id,
+            programStage: PROGRAM_STAGE.id,
+            ouMode:       'ACCESSIBLE',
+            fields:       'event,trackedEntity,occurredAt,orgUnit,orgUnitName,dataValues',
+            paging:       false,
+        },
     },
-  },
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+const ORG_UNITS_QUERY = {
+    orgUnits: {
+        resource: 'organisationUnits',
+        params: {
+            fields: 'id,displayName',
+            paging: false,
+        },
+    },
+}
 
-const attr  = (list = [], uid) => list.find(a => a.attribute === uid)?.value ?? '—'
-const dv    = (list = [], uid) => list.find(d => d.dataElement === uid)?.value ?? null
+const getAttr = (list = [], uid) => list.find(a => a.attribute === uid)?.value ?? null
+const getDV   = (list = [], uid) => list.find(d => d.dataElement === uid)?.value ?? null
 
-// ─────────────────────────────────────────────────────────────────────────────
+export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODERATE] } = {}) {
+    const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY)
+    const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY)
+    const { data: ouData, loading: ol } = useDataQuery(ORG_UNITS_QUERY)
 
-export function useAlerts() {
-  const { data: teiData,   loading: tl, error: te } = useDataQuery(TEI_QUERY)
-  const { data: evtData,   loading: el, error: ee } = useDataQuery(EVENTS_QUERY)
+    const loading = pl || el || ol
+    const error   = pe || ee
 
-  const loading = tl || el
-  const error   = te || ee
+    const ouMap = useMemo(() => {
+        const map = {}
+        ouData?.orgUnits?.organisationUnits?.forEach(ou => {
+            map[ou.id] = ou.displayName
+        })
+        return map
+    }, [ouData])
 
-  const alerts = useMemo(() => {
-    if (!teiData || !evtData) return []
+    const alerts = useMemo(() => {
+        if (!pData || !eData) return []
 
-    const teis   = teiData.patients?.trackedEntityInstances ?? []
-    const events = evtData.events?.events ?? []
+        const teis   = pData.patients?.trackedEntities ?? []
+        const events = eData.events?.events ?? []
 
-    // Index events by TEI, sorted newest first
-    const byTEI = {}
-    events.forEach(ev => {
-      if (!byTEI[ev.trackedEntityInstance]) byTEI[ev.trackedEntityInstance] = []
-      byTEI[ev.trackedEntityInstance].push(ev)
-    })
-    Object.values(byTEI).forEach(arr =>
-      arr.sort((a, b) => new Date(b.eventDate) - new Date(a.eventDate))
-    )
-
-    return teis
-      .map(tei => {
-        const teiId      = tei.trackedEntityInstance
-        const visits     = byTEI[teiId] ?? []
-        const latest     = visits[0] ?? null
-        const firstVisit = visits[visits.length - 1] ?? null
-        const enrollment = tei.enrollments?.[0] ?? {}
-
-        // ── Patient attributes ─────────────────────────────
-        const name     = attr(tei.attributes, ATTRIBUTES.fullName)
-        const age      = Number(attr(tei.attributes, ATTRIBUTES.age)) || null
-        const village  = attr(tei.attributes, ATTRIBUTES.village)
-        const phone    = attr(tei.attributes, ATTRIBUTES.phoneNumber)
-        const parity   = Number(attr(tei.attributes, ATTRIBUTES.parity)) || 0
-        const prevComp = attr(tei.attributes, ATTRIBUTES.previousComplications)
-
-        // ── Facility name ──────────────────────────────────
-        // Prefer the enrollment org unit name, fall back to latest event's
-        const facility = enrollment.orgUnitName
-          ?? latest?.orgUnitName
-          ?? 'Unknown facility'
-
-        // ── Latest visit data values ───────────────────────
-        const latestBpSystolic    = latest ? Number(dv(latest.dataValues, DATA_ELEMENTS.bpSystolic))    : null
-        const latestBpDiastolic   = latest ? Number(dv(latest.dataValues, DATA_ELEMENTS.bpDiastolic))   : null
-        const latestHaemoglobin   = latest ? Number(dv(latest.dataValues, DATA_ELEMENTS.haemoglobin))   : null
-        const latestMalariaResult = latest ? dv(latest.dataValues, DATA_ELEMENTS.malariaTestResult)     : null
-        const gestationalAge      = latest ? Number(dv(latest.dataValues, DATA_ELEMENTS.gestationalAge)): null
-        const dangerSignsRaw      = latest ? dv(latest.dataValues, DATA_ELEMENTS.dangerSigns)           : ''
-        const dangerSigns         = dangerSignsRaw
-          ? dangerSignsRaw.split(',').map(s => s.trim()).filter(Boolean)
-          : []
-        const nurseNotes          = latest ? dv(latest.dataValues, DATA_ELEMENTS.nurseNotes) : null
-        const firstVisitGA        = firstVisit
-          ? Number(dv(firstVisit.dataValues, DATA_ELEMENTS.gestationalAge))
-          : null
-
-        // ── Run risk engine ────────────────────────────────
-        const assessment = assessRisk(
-          { age, parity, previousComplications: prevComp },
-          {
-            totalVisits:         visits.length,
-            currentWeek:         gestationalAge ?? 0,
-            firstVisitWeek:      firstVisitGA,
-            latestBpSystolic,
-            latestBpDiastolic,
-            latestHaemoglobin,
-            latestMalariaResult,
-            dangerSigns,
-          }
+        const byTEI = {}
+        events.forEach(ev => {
+            const id = ev.trackedEntity
+            if (!byTEI[id]) byTEI[id] = []
+            byTEI[id].push(ev)
+        })
+        Object.values(byTEI).forEach(arr =>
+            arr.sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt))
         )
 
-        return {
-          teiUid:       teiId,
-          name,
-          age,
-          village,
-          phone,
-          facility,
-          parity,
-          prevComp,
-          totalVisits:  visits.length,
-          gestationalAge,
-          latestVisitDate: latest?.eventDate ?? null,
-          nurseNotes,
-          latestBpSystolic,
-          latestBpDiastolic,
-          latestHaemoglobin,
-          latestMalariaResult,
-          dangerSigns,
-          assessment,
-          enrollmentDate: enrollment.enrollmentDate ?? null,
-        }
-      })
-      // Keep only high + moderate risk, sorted by score desc
-      .filter(p => p.assessment.level !== RISK_LEVELS.NORMAL)
-      .sort((a, b) => b.assessment.score - a.assessment.score)
-  }, [teiData, evtData])
+        return teis
+            .map(tei => {
+                const id         = tei.trackedEntity
+                const visits     = byTEI[id] ?? []
+                const latest     = visits[0] ?? null
+                const firstVisit = visits[visits.length - 1] ?? null
+                const enrollment = tei.enrollments?.[0] ?? {}
 
-  return { alerts, loading, error }
+                const age      = Number(getAttr(tei.attributes, ATTRIBUTES.age))    || null
+                const parity   = Number(getAttr(tei.attributes, ATTRIBUTES.parity)) || 0
+                const prevComp = getAttr(tei.attributes, ATTRIBUTES.previousComplications)
+                const latestGA = latest ? Number(getDV(latest.dataValues, DATA_ELEMENTS.gestationalAge)) : null
+                const firstGA  = firstVisit ? Number(getDV(firstVisit.dataValues, DATA_ELEMENTS.gestationalAge)) : null
+                const danger   = latest ? (getDV(latest.dataValues, DATA_ELEMENTS.dangerSigns) || '').split(',').map(s => s.trim()).filter(Boolean) : []
+
+                const facilityOrgUid = enrollment.orgUnit ?? tei.orgUnit
+                const facilityName   =
+                    enrollment.orgUnitName ||
+                    ouMap[facilityOrgUid]  ||
+                    facilityOrgUid         ||
+                    '—'
+
+                const assessment = assessRisk(
+                    { age, parity, previousComplications: prevComp },
+                    {
+                        totalVisits:         visits.length,
+                        currentWeek:         latestGA ?? 0,
+                        firstVisitWeek:      firstGA,
+                        latestBpSystolic:    latest ? Number(getDV(latest.dataValues, DATA_ELEMENTS.bpSystolic))    : null,
+                        latestBpDiastolic:   latest ? Number(getDV(latest.dataValues, DATA_ELEMENTS.bpDiastolic))   : null,
+                        latestHaemoglobin:   latest ? Number(getDV(latest.dataValues, DATA_ELEMENTS.haemoglobin))   : null,
+                        latestMalariaResult: latest ? getDV(latest.dataValues, DATA_ELEMENTS.malariaTestResult)     : null,
+                        dangerSigns:         danger,
+                    }
+                )
+
+                return {
+                    teiUid:              id,
+                    name:                getAttr(tei.attributes, ATTRIBUTES.fullName)    ?? 'Unknown',
+                    age,
+                    village:             getAttr(tei.attributes, ATTRIBUTES.village)     ?? '—',
+                    phone:               getAttr(tei.attributes, ATTRIBUTES.phoneNumber) ?? '—',
+                    parity,
+                    prevComp,
+                    facility:            facilityName,
+                    orgUnit:             facilityOrgUid,
+                    gestationalAge:      latestGA,
+                    totalVisits:         visits.length,
+                    lastVisitDate:       latest?.occurredAt ?? null,
+                    latestBpSystolic:    latest ? Number(getDV(latest.dataValues, DATA_ELEMENTS.bpSystolic))    : null,
+                    latestBpDiastolic:   latest ? Number(getDV(latest.dataValues, DATA_ELEMENTS.bpDiastolic))   : null,
+                    latestHaemoglobin:   latest ? Number(getDV(latest.dataValues, DATA_ELEMENTS.haemoglobin))   : null,
+                    latestMalariaResult: latest ? getDV(latest.dataValues, DATA_ELEMENTS.malariaTestResult)     : null,
+                    dangerSigns:         danger,
+                    nurseNotes:          latest ? getDV(latest.dataValues, DATA_ELEMENTS.nurseNotes) : null,
+                    assessment,
+                }
+            })
+            .filter(p => includeLevels.includes(p.assessment.level))
+            .sort((a, b) => b.assessment.score - a.assessment.score)
+    }, [pData, eData, ouMap, includeLevels])
+
+    return { alerts, loading, error, refetch: () => { rp(); re() } }
 }

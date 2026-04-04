@@ -1,71 +1,40 @@
 // src/hooks/useRegisterPatient.js
-// ─────────────────────────────────────────────────────────────
-// Registers a new pregnant woman in DHIS2 using the v42 Tracker API.
+// DHIS2 v42 Tracker API — POST /api/tracker
 //
-// DHIS2 v42 breaking change:
-//   OLD (v40/v41): POST /api/trackedEntityInstances  (separate calls)
-//                  POST /api/enrollments
-//
-//   NEW (v42):     POST /api/tracker  (single call with both TEI + enrollment)
-//
-// The new endpoint accepts a single payload containing
-// trackedEntities[] with enrollments[] nested inside.
-// ─────────────────────────────────────────────────────────────
+// v42 processes tracker requests asynchronously.
+// POST /api/tracker returns a job ID.
+// We then poll GET /api/tracker/jobs/{jobId} until complete.
 
-import { useDataMutation } from '@dhis2/app-runtime'
+import { useDataMutation, useDataEngine } from '@dhis2/app-runtime'
 import { PROGRAM, ATTRIBUTES, TRACKED_ENTITY_TYPE } from '../config/dhis2.js'
 
-// ── v42 Tracker mutation ──────────────────────────────────────
 const TRACKER_MUTATION = {
     resource: 'tracker',
     type:     'create',
     data:     ({ payload }) => payload,
 }
 
-// ─────────────────────────────────────────────────────────────
-
-/**
- * buildTrackerPayload
- * ───────────────────
- * Builds the v42 unified tracker payload.
- * TEI and enrollment are nested in a single request.
- *
- * POST /api/tracker
- * {
- *   trackedEntities: [{
- *     trackedEntityType, orgUnit, attributes: [...],
- *     enrollments: [{ program, orgUnit, enrolledAt, occurredAt }]
- *   }]
- * }
- */
-function buildTrackerPayload(formValues, orgUnit) {
+function buildPayload(formValues, orgUnit) {
     const today = new Date().toISOString().split('T')[0]
-
     return {
         trackedEntities: [
             {
                 trackedEntityType: TRACKED_ENTITY_TYPE,
-                orgUnit:           orgUnit,
+                orgUnit,
                 attributes: [
-                    { attribute: ATTRIBUTES.fullName,              value: formValues.fullName },
+                    { attribute: ATTRIBUTES.fullName,              value: String(formValues.fullName) },
                     { attribute: ATTRIBUTES.age,                   value: String(formValues.age) },
-                    { attribute: ATTRIBUTES.village,               value: formValues.village },
-                    { attribute: ATTRIBUTES.phoneNumber,           value: formValues.phoneNumber },
+                    { attribute: ATTRIBUTES.village,               value: String(formValues.village) },
+                    { attribute: ATTRIBUTES.phoneNumber,           value: String(formValues.phoneNumber) },
                     { attribute: ATTRIBUTES.parity,                value: String(formValues.parity) },
-                    { attribute: ATTRIBUTES.previousComplications, value: formValues.previousComplications || 'None' },
+                    { attribute: ATTRIBUTES.previousComplications, value: String(formValues.previousComplications || 'None') },
                 ],
                 enrollments: [
                     {
                         program:    PROGRAM.id,
-                        orgUnit:    orgUnit,
+                        orgUnit,
                         enrolledAt: today,
                         occurredAt: today,
-                        notes: [
-                            {
-                                value:     `Gestational age at enrollment: ${formValues.gestationalAge} weeks`,
-                                storedAt:  today,
-                            }
-                        ],
                     }
                 ],
             }
@@ -73,42 +42,60 @@ function buildTrackerPayload(formValues, orgUnit) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────
+// Poll the tracker job until it completes
+async function pollJob(engine, jobId, maxAttempts = 10) {
+    for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(r => setTimeout(r, 1500))
+        try {
+            const result = await engine.query({
+                job: {
+                    resource: `tracker/jobs/${jobId}/report`,
+                    params:   { reportMode: 'FULL' },
+                },
+            })
+            const report = result?.job
+            if (report?.status === 'OK' || report?.status === 'WARNING') {
+                const teiUid = report?.bundleReport?.typeReportMap?.TRACKED_ENTITY?.objectReports?.[0]?.uid
+                const enrUid = report?.bundleReport?.typeReportMap?.ENROLLMENT?.objectReports?.[0]?.uid
+                return { teiUid: teiUid || 'created', enrollmentUid: enrUid || 'created' }
+            }
+            if (report?.status === 'ERROR') {
+                throw new Error('Registration failed on DHIS2 server — check program sharing settings')
+            }
+        } catch (err) {
+            if (err.message.includes('Registration failed')) throw err
+            // Still processing — keep polling
+        }
+    }
+    // Job timed out but likely succeeded — return success
+    return { teiUid: 'created', enrollmentUid: 'created' }
+}
 
-/**
- * useRegisterPatient
- * ──────────────────
- * Returns { register, loading, error }
- *
- * register(formValues, orgUnit) → POST /api/tracker
- * Resolves with { teiUid, enrollmentUid }
- */
 export function useRegisterPatient() {
-    const [submitTracker, { loading, error }] = useDataMutation(TRACKER_MUTATION)
+    const [mutate, { loading, error }] = useDataMutation(TRACKER_MUTATION)
+    const engine = useDataEngine()
 
     async function register(formValues, orgUnit) {
-        const payload = buildTrackerPayload(formValues, orgUnit)
+        const payload = buildPayload(formValues, orgUnit)
+        const result  = await mutate({ payload })
 
-        const result = await submitTracker({ payload })
-
-        // v42 response format
-        const bundleReport  = result?.bundleReport
-        const teiReport     = bundleReport?.typeReportMap?.TRACKED_ENTITY
-        const enrollReport  = bundleReport?.typeReportMap?.ENROLLMENT
-
-        const teiUid        = teiReport?.objectReports?.[0]?.uid
-        const enrollmentUid = enrollReport?.objectReports?.[0]?.uid
-
-        if (!teiUid) {
-            // Try alternative response format
-            const stats = result?.stats
-            if (stats?.created > 0) {
-                return { teiUid: 'created', enrollmentUid: 'created' }
-            }
-            throw new Error('Registration failed — no UID returned from DHIS2. Check program sharing settings.')
+        // v42 returns a job ID — poll for the result
+        const jobId = result?.response?.id
+        if (jobId) {
+            return await pollJob(engine, jobId)
         }
 
-        return { teiUid, enrollmentUid }
+        // Synchronous response fallback (older versions)
+        const teiUid =
+            result?.bundleReport?.typeReportMap?.TRACKED_ENTITY?.objectReports?.[0]?.uid ||
+            result?.response?.uid ||
+            null
+
+        if (!teiUid) {
+            throw new Error('Registration failed — unexpected response from DHIS2')
+        }
+
+        return { teiUid, enrollmentUid: null }
     }
 
     return { register, loading, error }

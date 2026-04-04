@@ -1,52 +1,51 @@
 ﻿// src/config/dhis2.js
-// All UIDs confirmed from play.im.dhis2.org/dev-2-42
-// Program UID:       VvjcLK7x1bH
-// Program Stage UID: oDMD0SBDBRx
+// All UIDs from local Docker DHIS2 instance (http://localhost:8080)
+// These are permanent and will never reset
 
 export const PROGRAM = {
-    id:   'VvjcLK7x1bH',
+    id:   'e8KFbAy617h',
     name: 'GMB Antenatal Care',
 }
 
 export const PROGRAM_STAGE = {
-    id:   'oDMD0SBDBRx',
+    id:   'vwUpkSACTFy',
     name: 'GMB ANC Visit',
 }
 
-export const TRACKED_ENTITY_TYPE = 'nEenWmSyUEp'
+export const TRACKED_ENTITY_TYPE = 'ioJeGoAK80X'
 
 export const ORG_UNITS = {
-    theGambia:             'nzUt055ynO4',
-    serrекundaGH:          'wi4GobGoOoT',
-    brikаmaHC:             'mGyei5DWnSW',
-    royalVictoria:         'OwSYyqO2GF4',
-    edwardFrancis:         'sn3D3SL1EDy',
-    farafenni:             'w11r0gSek0M',
-    bundungMCH:            'vIk7su8Ukr6',
+    theGambia:     'XVOAXBkfqji',
+    serrекundaGH:  'ROebyw7EnRV',
+    brikаmaHC:     'nNWwjJGxneB',
+    royalVictoria: 'pNG08WuAJAs',
+    edwardFrancis: 'AEj0tm8XM1b',
+    farafenni:     'CX5ihYFpzcG',
+    bundungMCH:    'Zmw770ATyCp',
 }
 
 export const ATTRIBUTES = {
-    fullName:              'aEd3LH11QUL',
-    age:                   'BSMFmsYwB7M',
-    village:               'mk2rXAJdWnL',
-    phoneNumber:           'qH6v37fPn3D',
-    parity:                'nc9FXYSjgbs',
-    previousComplications: 's0PoCJQBjGx',
+    fullName:              'FlTjYogGR69',
+    age:                   'arhjvbdjUs7',
+    village:               'wS88wLfMqgV',
+    phoneNumber:           'jD85ykGIPZw',
+    parity:                'qIguqeJK0Ht',
+    previousComplications: 'buf53xLJhuX',
 }
 
 export const DATA_ELEMENTS = {
-    bpSystolic:          't1zfO95B32O',
-    bpDiastolic:         'sHIHCU7vvB0',
-    haemoglobin:         'bjVuflEL5yj',
-    weight:              'QNV1CAlfYEV',
-    gestationalAge:      'BLQwVUAgzxb',
-    visitNumber:         'yNii4R46ckl',
-    malariaTestResult:   'HTalhsN1uPA',
-    ironSupplementation: 'iahGS6WNerS',
-    folicAcid:           'iyCXGGvXbaw',
-    nurseNotes:          'GVeHumOFGG4',
-    dangerSigns:         'D9WefsLiHXb',
-    nextVisitDate:       'oI9lnGfaq7L',
+    bpSystolic:          'vybXaYCAYM1',
+    bpDiastolic:         'bR1PcPv0J2s',
+    haemoglobin:         'SsZDLgtmvSP',
+    weight:              'kiFX5YtAI2u',
+    gestationalAge:      'uiZfTG4z155',
+    visitNumber:         'Rus2XYFUeBw',
+    malariaTestResult:   'eeD1DwyXexA',
+    ironSupplementation: 'nphRB2vY7v6',
+    folicAcid:           'C4bAKAN3GaQ',
+    nurseNotes:          'Wzt73YX23nq',
+    dangerSigns:         'NnddJBFrywK',
+    nextVisitDate:       'TMRL7w3yB74',
 }
 
 export const THRESHOLDS = {

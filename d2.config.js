@@ -6,10 +6,10 @@
 // Proxy is configured via --proxy flag in package.json:
 //   d2-app-scripts start --proxy https://play.dhis2.org/demo
 // ─────────────────────────────────────────────────────────────
-
+// d2.config.js
 const config = {
     type: 'app',
-    name: 'maternal-health-risk-alert',
+    name: 'Maternal Health Risk Alert',
     title: 'Maternal Health Risk Alert',
     description: 'Antenatal care tracking and high-risk pregnancy detection for Gambian clinics',
     minDHIS2Version: '2.38',

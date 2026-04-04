@@ -1,0 +1,65 @@
+// src/hooks/useVisits.js
+// Fetches all ANC visit events for a specific patient
+// GET /api/tracker/events?trackedEntity=<uid>
+
+import { useDataQuery } from '@dhis2/app-runtime'
+import { useMemo } from 'react'
+import { PROGRAM, PROGRAM_STAGE, DATA_ELEMENTS } from '../config/dhis2.js'
+
+const VISITS_QUERY = {
+    visits: {
+        resource: 'tracker/events',
+        params: ({ teiUid }) => ({
+            program:       PROGRAM.id,
+            programStage:  PROGRAM_STAGE.id,
+            trackedEntity: teiUid,
+            ouMode:        'ACCESSIBLE',
+            fields:        'event,trackedEntity,occurredAt,orgUnit,orgUnitName,status,dataValues',
+            order:         'occurredAt:asc',
+            paging:        false,
+        }),
+    },
+}
+
+const getDV = (list = [], uid) =>
+    list.find(d => d.dataElement === uid)?.value ?? null
+
+export function useVisits(teiUid) {
+    const { data, loading, error, refetch } = useDataQuery(VISITS_QUERY, {
+        variables: { teiUid },
+        lazy:      !teiUid,
+    })
+
+    const visits = useMemo(() => {
+        if (!data) return []
+        return (data.visits?.events ?? []).map((ev, idx) => ({
+            eventUid:      ev.event,
+            eventDate:     ev.occurredAt,
+            facility:      ev.orgUnitName ?? '—',
+            orgUnit:       ev.orgUnit,
+            visitNumber:   idx + 1,
+            bpSystolic:    Number(getDV(ev.dataValues, DATA_ELEMENTS.bpSystolic))    || null,
+            bpDiastolic:   Number(getDV(ev.dataValues, DATA_ELEMENTS.bpDiastolic))   || null,
+            haemoglobin:   Number(getDV(ev.dataValues, DATA_ELEMENTS.haemoglobin))   || null,
+            weight:        Number(getDV(ev.dataValues, DATA_ELEMENTS.weight))        || null,
+            gestationalAge:Number(getDV(ev.dataValues, DATA_ELEMENTS.gestationalAge))|| null,
+            malariaResult: getDV(ev.dataValues, DATA_ELEMENTS.malariaTestResult),
+            ironGiven:     getDV(ev.dataValues, DATA_ELEMENTS.ironSupplementation) === 'true',
+            folicGiven:    getDV(ev.dataValues, DATA_ELEMENTS.folicAcid) === 'true',
+            dangerSigns:   (getDV(ev.dataValues, DATA_ELEMENTS.dangerSigns) || '').split(',').map(s => s.trim()).filter(Boolean),
+            nurseNotes:    getDV(ev.dataValues, DATA_ELEMENTS.nurseNotes),
+            nextVisitDate: getDV(ev.dataValues, DATA_ELEMENTS.nextVisitDate),
+        }))
+    }, [data])
+
+    const chartData = useMemo(() => visits.map(v => ({
+        label:  v.eventDate ? new Date(v.eventDate).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' }) : `V${v.visitNumber}`,
+        sys:    v.bpSystolic,
+        dia:    v.bpDiastolic,
+        hb:     v.haemoglobin,
+        weight: v.weight,
+        ga:     v.gestationalAge,
+    })), [visits])
+
+    return { visits, chartData, loading, error, refetch }
+}
