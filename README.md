@@ -2,6 +2,10 @@
 
 A DHIS2 web application that automatically identifies high-risk pregnancies during antenatal care in The Gambia.
 
+## Available on DHIS2 App Hub
+
+[Install from DHIS2 App Hub](https://apps.dhis2.org/app/maternal-health-risk-alert)
+
 ## Screenshots
 
 ### Dashboard
@@ -10,7 +14,7 @@ A DHIS2 web application that automatically identifies high-risk pregnancies duri
 ### Patient List
 ![Patient List](screenshots/screenshot-patients.png)
 
-### Patient Detail
+### Patient Detail with Trend Charts
 ![Patient Detail](screenshots/screenshot-patient-detail.png)
 
 ### Risk Alerts
@@ -64,6 +68,7 @@ This application automatically analyses every patient clinical data and flags hi
 - A running DHIS2 instance v2.38 or above
 
 ### Install
+
 ```bash
 git clone https://github.com/mljadama/maternal-health-risk-alert.git
 cd maternal-health-risk-alert
@@ -73,13 +78,21 @@ npm install
 ### Configure DHIS2 metadata
 
 Update the server URL in setup-dhis2.ps1 then run:
+
 ```powershell
 .\setup-dhis2.ps1
 ```
 
-This creates the ANC Program, Program Stage, Tracked Entity Attributes and Data Elements automatically.
+This creates the ANC Program, Program Stage, Tracked Entity Attributes and Data Elements automatically and writes all UIDs to src/config/dhis2.js.
+
+### Start development server
+
+```bash
+npm start
+```
 
 ### Build and install into DHIS2
+
 ```bash
 npm run build
 curl.exe -X POST "http://your-dhis2/api/apps" -u "admin:password" -F "file=@build/bundle/Maternal Health Risk Alert-1.0.0.zip"
