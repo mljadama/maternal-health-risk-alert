@@ -63,8 +63,19 @@ export function usePatients() {
     const patients = useMemo(() => {
         if (!pData || !eData) return []
 
-        const teis   = pData.patients?.trackedEntities ?? []
+        const rawTeis = pData.patients?.trackedEntities ?? []
         const events = eData.events?.events ?? []
+
+        // Some DHIS2 responses can include repeated tracked entities across enrollments/pages.
+        // Keep the last seen entry per UID so each patient renders once.
+        const teis = Array.from(
+            rawTeis.reduce((acc, tei) => {
+                if (tei?.trackedEntity) {
+                    acc.set(tei.trackedEntity, tei)
+                }
+                return acc
+            }, new Map()).values()
+        )
 
         const byTEI = {}
         events.forEach(ev => {
