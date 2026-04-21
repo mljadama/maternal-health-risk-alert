@@ -1,24 +1,25 @@
 {
     "name": "maternal-health-risk-alert",
     "version": "1.0.0",
-    "description": "Maternal Health Risk Alert System for antenatal care in Gambian clinics",
+    "description": "Automated antenatal care risk assessment and patient tracking for DHIS2",
     "license": "BSD-3-Clause",
     "private": true,
     "scripts": {
-        "start": "d2-app-scripts start --proxy http://localhost:8080",
+        "start": "d2-app-scripts start --proxy http://localhost:8080 --proxyPort 8081",
         "build": "d2-app-scripts build",
         "test": "d2-app-scripts test",
+        "postinstall": "node scripts/apply-dhis2-windows-patches.js",
         "deploy": "d2-app-scripts deploy",
         "lint": "d2-app-scripts lint"
     },
     "dependencies": {
+        "@babel/eslint-parser": "^7.28.6",
         "@dhis2/app-runtime": "^3.10.0",
         "@dhis2/ui": "^9.0.0",
         "@emotion/react": "^11.14.0",
         "@emotion/styled": "^11.14.1",
-        "@mui/icons-material": "^5.16.7",
-        "@mui/material": "^5.16.7",
         "dayjs": "^1.11.13",
+        "eslint": "^10.2.1",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
         "react-router-dom": "^6.28.0",
@@ -27,6 +28,7 @@
     "devDependencies": {
         "@dhis2/cli-app-scripts": "12.10.4",
         "@types/react": "^18.3.1",
-        "@types/react-dom": "^18.3.1"
+        "@types/react-dom": "^18.3.1",
+        "acorn": "^8.16.0"
     }
 }

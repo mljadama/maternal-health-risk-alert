@@ -1,76 +1,84 @@
 // src/components/patients/PatientCard.jsx
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  Avatar, Box, Card, CardActionArea, CardContent,
-  Chip, Divider, Typography,
-} from '@mui/material'
-import { LocationOn, LocalHospital, CalendarMonth, EventNote } from '@mui/icons-material'
 import RiskBadge from './RiskBadge.jsx'
 import { RISK_COLORS } from '../../config/dhis2.js'
+import styles from './PatientCard.module.css'
 
+/**
+ * Patient Card Component
+ * Displays patient information in a clickable card
+ * @param {object} patient - Patient data object with: teiUid, name, age, village, facility, gestationalAge, totalVisits, assessment
+ */
 export default function PatientCard({ patient }) {
   const navigate = useNavigate()
-  const { teiUid, name, age, village, facility, gestationalAge, totalVisits, lastVisitDate, assessment } = patient
-  const cfg     = RISK_COLORS[assessment?.level] ?? RISK_COLORS.normal
+  const { teiUid, name, age, village, facility, gestationalAge, totalVisits, assessment } = patient
+  const riskLevel = assessment?.level || 'normal'
+  const riskCfg = RISK_COLORS[riskLevel] || RISK_COLORS.normal
   const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
 
+  const riskLevelClass = {
+    high: styles.cardHigh,
+    moderate: styles.cardModerate,
+    normal: styles.cardNormal,
+  }[riskLevel] || styles.cardNormal
+
+  const avatarClass = {
+    high: styles.avatarHigh,
+    moderate: styles.avatarModerate,
+    normal: styles.avatarNormal,
+  }[riskLevel] || styles.avatarNormal
+
   return (
-    <Card
-      elevation={0}
-      sx={{
-        borderRadius: '14px',
-        border: `1.5px solid ${cfg.border}`,
-        background: '#fff',
-        transition: 'transform .15s, box-shadow .15s',
-        '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 8px 24px rgba(0,0,0,.08)' },
-      }}
+    <button
+      className={`${styles.card} ${riskLevelClass}`}
+      onClick={() => navigate(`/patients/${teiUid}`)}
+      style={{ all: 'unset', cursor: 'pointer', display: 'block', width: '100%' }}
+      aria-label={`View patient ${name}`}
     >
-      <CardActionArea onClick={() => navigate(`/patients/${teiUid}`)} sx={{ borderRadius: '14px' }}>
-        <CardContent sx={{ p: 2 }}>
-          {/* Header row */}
-          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start', mb: 1.5 }}>
-            <Avatar sx={{ width: 40, height: 40, fontSize: 14, fontWeight: 800, background: `${cfg.main}22`, color: cfg.main, flexShrink: 0 }}>
-              {initials}
-            </Avatar>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography variant="body2" fontWeight={700} sx={{ color: '#0f172a', lineHeight: 1.2 }} noWrap>{name}</Typography>
-              <Typography variant="caption" sx={{ color: '#64748b', fontSize: 11 }}>Age {age ?? '—'}</Typography>
-            </Box>
-            <RiskBadge level={assessment?.level} flags={assessment?.flags} />
-          </Box>
+      <div className={styles.content}>
+        {/* Header */}
+        <div className={styles.header}>
+          <div className={`${styles.avatar} ${avatarClass}`}>
+            {initials}
+          </div>
+          <div className={styles.nameSection}>
+            <h3 className={styles.name}>{name}</h3>
+            <p className={styles.age}>Age {age ?? '—'}</p>
+          </div>
+          <RiskBadge level={riskLevel} flags={assessment?.flags} />
+        </div>
 
-          <Divider sx={{ mb: 1.5 }} />
+        <hr className={styles.divider} />
 
-          {/* Details */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.6 }}>
-            {village && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                <LocationOn sx={{ fontSize: 13, color: '#94a3b8' }} />
-                <Typography variant="caption" sx={{ fontSize: 11, color: '#64748b' }}>{village}</Typography>
-              </Box>
+        {/* Details */}
+        <div className={styles.details}>
+          {village && (
+            <div className={styles.detailRow}>
+              <span className={styles.icon}>📍</span>
+              <p className={styles.detailText}>{village}</p>
+            </div>
+          )}
+          {facility && (
+            <div className={styles.detailRow}>
+              <span className={styles.icon}>🏥</span>
+              <p className={styles.detailText}>{facility}</p>
+            </div>
+          )}
+          <div className={styles.statsRow}>
+            {gestationalAge && (
+              <div className={styles.stat}>
+                <span className={styles.statIcon}>📅</span>
+                <span>{gestationalAge} wks</span>
+              </div>
             )}
-            {facility && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                <LocalHospital sx={{ fontSize: 13, color: '#94a3b8' }} />
-                <Typography variant="caption" sx={{ fontSize: 11, color: '#64748b' }} noWrap>{facility}</Typography>
-              </Box>
-            )}
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              {gestationalAge && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
-                  <CalendarMonth sx={{ fontSize: 12, color: '#94a3b8' }} />
-                  <Typography variant="caption" sx={{ fontSize: 11, color: '#64748b' }}>{gestationalAge} wks</Typography>
-                </Box>
-              )}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
-                <EventNote sx={{ fontSize: 12, color: '#94a3b8' }} />
-                <Typography variant="caption" sx={{ fontSize: 11, color: '#64748b' }}>{totalVisits} visit{totalVisits !== 1 ? 's' : ''}</Typography>
-              </Box>
-            </Box>
-          </Box>
-        </CardContent>
-      </CardActionArea>
-    </Card>
+            <div className={styles.stat}>
+              <span className={styles.statIcon}>📋</span>
+              <span>{totalVisits} visit{totalVisits !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </button>
   )
 }

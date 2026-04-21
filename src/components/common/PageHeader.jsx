@@ -1,9 +1,18 @@
 // src/components/common/PageHeader.jsx
 import React from 'react'
-import { Box, Button, Chip, Typography } from '@mui/material'
-import { ArrowBack } from '@mui/icons-material'
+import { Box, Button } from '@dhis2/ui'
 import { useNavigate } from 'react-router-dom'
+import styles from './PageHeader.module.css'
 
+/**
+ * Page Header Component
+ * Displays page title, subtitle, back button, badge, and optional action
+ * @param {string} title - Page title
+ * @param {string} subtitle - Optional subtitle
+ * @param {string} backTo - Route path to navigate back to
+ * @param {string} badge - Optional badge label
+ * @param {ReactNode} action - Optional action element (buttons, etc.)
+ */
 export default function PageHeader({
   title,
   subtitle,
@@ -14,34 +23,29 @@ export default function PageHeader({
   const navigate = useNavigate()
 
   return (
-    <Box sx={{ mb: 3 }}>
+    <div className={styles.container}>
       {backTo && (
-        <Button
-          startIcon={<ArrowBack />}
+        <button
           onClick={() => navigate(backTo)}
-          sx={{ mb: 1.5, color: '#64748b', textTransform: 'none', fontWeight: 500, p: 0 }}
+          className={styles.backButton}
         >
-          Back
-        </Button>
+          ← Back
+        </button>
       )}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
-        <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="h5" fontWeight={800} sx={{ color: '#0f172a', letterSpacing: '-.02em', lineHeight: 1.2 }}>
-              {title}
-            </Typography>
+      <div className={styles.header}>
+        <div>
+          <div className={styles.titleBox}>
+            <h2 className={styles.title}>{title}</h2>
             {badge && (
-              <Chip label={badge} size="small" sx={{ fontSize: 11, fontWeight: 600, background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }} />
+              <span className={styles.badge}>{badge}</span>
             )}
-          </Box>
+          </div>
           {subtitle && (
-            <Typography variant="body2" sx={{ color: '#64748b', mt: 0.4 }}>
-              {subtitle}
-            </Typography>
+            <div className={styles.subtitle}>{subtitle}</div>
           )}
-        </Box>
-        {action && <Box>{action}</Box>}
-      </Box>
-    </Box>
+        </div>
+        {action && <div className={styles.action}>{action}</div>}
+      </div>
+    </div>
   )
 }

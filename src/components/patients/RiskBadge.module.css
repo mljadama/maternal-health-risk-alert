@@ -1,0 +1,155 @@
+/* Risk Badge Component Styles */
+
+.badgeContainer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 11px;
+  white-space: nowrap;
+  border: 1.5px solid;
+}
+
+.badge.small {
+  height: 24px;
+  padding: 4px 8px;
+}
+
+.badge.medium {
+  height: 28px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.badge.medium .dot {
+  width: 10px;
+  height: 10px;
+}
+
+/* Risk level colors */
+.high {
+  background-color: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.high .dot {
+  background-color: #dc2626;
+}
+
+.moderate {
+  background-color: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.moderate .dot {
+  background-color: #d97706;
+}
+
+.normal {
+  background-color: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #14532d;
+}
+
+.normal .dot {
+  background-color: #16a34a;
+}
+
+.score {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+/* Score badge colors match risk level */
+.scoreHigh {
+  background-color: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+.scoreModerate {
+  background-color: #fffbeb;
+  border-color: #fde68a;
+  color: #d97706;
+}
+
+.scoreNormal {
+  background-color: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #16a34a;
+}
+
+/* Tooltip styles */
+.tooltip {
+  position: relative;
+  display: inline-block;
+}
+
+.tooltipContent {
+  visibility: hidden;
+  background-color: #1f2937;
+  color: #ffffff;
+  text-align: left;
+  border-radius: 6px;
+  padding: 8px 10px;
+  position: absolute;
+  z-index: 1000;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-width: 200px;
+  white-space: normal;
+}
+
+.tooltip:hover .tooltipContent {
+  visibility: visible;
+}
+
+.tooltipTitle {
+  font-weight: 700;
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+
+.tooltipItem {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 3px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.tooltipIcon {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  margin-top: 2px;
+}

@@ -1,0 +1,141 @@
+/* Patient Card Component Styles */
+
+.card {
+  border-radius: 14px;
+  border: 1.5px solid;
+  background-color: #ffffff;
+  overflow: hidden;
+  transition: transform 0.15s, box-shadow 0.15s;
+  cursor: pointer;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.content {
+  padding: 16px;
+}
+
+.header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-weight: 800;
+  font-size: 14px;
+  color: #ffffff;
+}
+
+.nameSection {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font-weight: 700;
+  font-size: 14px;
+  color: #0f172a;
+  line-height: 1.2;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.age {
+  color: #64748b;
+  font-size: 11px;
+  margin: 0;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  margin: 12px 0;
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detailRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.icon {
+  font-size: 13px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.detailText {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+.statsRow {
+  display: flex;
+  gap: 16px;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.statIcon {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* Risk level border colors */
+.cardHigh {
+  border-color: #fecaca;
+}
+
+.cardModerate {
+  border-color: #fde68a;
+}
+
+.cardNormal {
+  border-color: #bbf7d0;
+}
+
+/* Avatar background colors */
+.avatarHigh {
+  background-color: rgba(220, 38, 38, 0.13);
+  color: #dc2626;
+}
+
+.avatarModerate {
+  background-color: rgba(217, 119, 6, 0.13);
+  color: #d97706;
+}
+
+.avatarNormal {
+  background-color: rgba(22, 163, 74, 0.13);
+  color: #16a34a;
+}

@@ -1,6 +1,6 @@
 ﻿# Maternal Health Risk Alert System
 
-A DHIS2 web application that automatically identifies high-risk pregnancies during antenatal care in The Gambia.
+A DHIS2 web application that automatically identifies high-risk pregnancies during antenatal care using evidence-based clinical rules.
 
 ## Available on DHIS2 App Hub
 
@@ -25,9 +25,9 @@ A DHIS2 web application that automatically identifies high-risk pregnancies duri
 
 ## What it does
 
-Health workers in Gambian clinics see 20 to 50 pregnant women every day. Identifying high-risk patients currently requires manual review of paper registers. High-risk cases are often identified too late.
+Health workers in antenatal clinics see many pregnant women every day. Identifying high-risk patients manually requires careful clinical assessment and can be time-consuming. High-risk cases may be identified too late.
 
-This application automatically analyses every patient clinical data and flags high-risk pregnancies in real time the moment new data is entered. No manual analysis required.
+This application automatically analyzes each patient's clinical data and flags high-risk pregnancies in real time the moment new data is entered. It uses evidence-based clinical rules to score pregnancy risk based on vital signs, clinical findings, and obstetric history. No manual analysis required.
 
 ## Features
 
@@ -66,6 +66,7 @@ This application automatically analyses every patient clinical data and flags hi
 
 - Node.js v20 or higher
 - A running DHIS2 instance v2.38 or above
+- curl and base64 tools (for running setup script)
 
 ### Install
 
@@ -77,13 +78,43 @@ npm install
 
 ### Configure DHIS2 metadata
 
-Update the server URL in setup-dhis2.ps1 then run:
+The app requires a Tracker program with ANC visits. You can either:
 
+**Option 1: Use the provided setup script (creates demo data)**
+
+Windows (PowerShell):
 ```powershell
+# Update $SERVER in setup-dhis2.ps1 if not using localhost:8080
 .\setup-dhis2.ps1
 ```
 
-This creates the ANC Program, Program Stage, Tracked Entity Attributes and Data Elements automatically and writes all UIDs to src/config/dhis2.js.
+macOS/Linux (Bash):
+```bash
+# Update $SERVER in setup-dhis2.sh if not using localhost:8080
+chmod +x setup-dhis2.sh
+./setup-dhis2.sh
+```
+
+This script creates:
+- ANC Program (Antenatal Care Tracker)
+- ANC Visit Program Stage (repeatable)
+- Tracked Entity Attributes (patient demographics)
+- Data Elements (vital signs and test results)
+- Organization Units (health facilities)
+
+The script writes all UIDs to `src/config/dhis2.js`.
+
+**Option 2: Manual configuration (use existing metadata)**
+
+If you have an existing ANC Tracker program in your DHIS2 instance:
+
+1. Find your program's UID in DHIS2 Maintenance → Tracker programs
+2. Edit `src/config/dhis2.js` and update the UIDs:
+   - `PROGRAM.id` - Your ANC Program UID
+   - `PROGRAM_STAGE.id` - Your ANC Visit stage UID
+   - `ATTRIBUTES` - Map to your tracked entity attributes
+   - `DATA_ELEMENTS` - Map to your data elements
+   - `ORG_UNITS` - Update to your organization units
 
 ### Start development server
 
@@ -100,11 +131,10 @@ curl.exe -X POST "http://your-dhis2/api/apps" -u "admin:password" -F "file=@buil
 
 ## Why this was built
 
-The Gambia recorded 130 maternal deaths in 2025. The leading causes are pre-eclampsia, severe anaemia, malaria in pregnancy, and late ANC booking. All are detectable early if the right data is tracked. No existing DHIS2 tool automatically scores individual pregnancy risk at the point of care. This application fills that gap.
+Maternal mortality remains a significant health challenge globally. The leading preventable causes include pre-eclampsia, severe anaemia, malaria in pregnancy, and late ANC booking. All are detectable early when the right clinical data is tracked systematically.
 
-## Submitted to
+While DHIS2 is widely used for antenatal care data collection, no existing standard tool provides automated individual pregnancy risk assessment at the point of care. This application fills that gap by applying evidence-based clinical rules to track data in real time, helping health workers identify and manage high-risk pregnancies early.
 
-DHIS2 Annual Conference 2026 App Competition
 
 ## License
 

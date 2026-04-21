@@ -67,8 +67,8 @@ async function pollJob(engine, jobId, maxAttempts = 10) {
             // Still processing — keep polling
         }
     }
-    // Job timed out but likely succeeded — return success
-    return { teiUid: 'created', enrollmentUid: 'created' }
+    // Job timed out after all attempts
+    throw new Error('Patient registration job timed out. Please check if the registration was successful in DHIS2.')
 }
 
 export function useRegisterPatient() {

@@ -1,0 +1,45 @@
+/* Error Alert Component Styles */
+
+.container {
+  padding: 24px;
+}
+
+.alert {
+  border-radius: 8px;
+  padding: 16px;
+  background-color: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #7f1d1d;
+}
+
+.title {
+  font-weight: 700;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.message {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  margin-top: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.button {
+  background-color: #fca5a5;
+  color: #7f1d1d;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.button:hover {
+  background-color: #f87171;
+}

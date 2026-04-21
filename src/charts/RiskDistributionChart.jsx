@@ -1,7 +1,5 @@
 // src/charts/RiskDistributionChart.jsx
 import React from 'react'
-import { Box, Typography } from '@mui/material'
-import { FiberManualRecord } from '@mui/icons-material'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 
 const DEFAULT_DATA = [
@@ -25,7 +23,7 @@ function PieLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }) {
 
 export default function RiskDistributionChart({ data = DEFAULT_DATA, total = 0, height = 220 }) {
   return (
-    <Box>
+    <div>
       <ResponsiveContainer width="100%" height={height}>
         <PieChart>
           <Pie
@@ -50,19 +48,28 @@ export default function RiskDistributionChart({ data = DEFAULT_DATA, total = 0, 
       </ResponsiveContainer>
 
       {/* Legend */}
-      <Box>
+      <div>
         {data.map(entry => {
           const pct = total > 0 ? Math.round((entry.value / total) * 100) : 0
           return (
-            <Box key={entry.name} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.6, borderBottom: '1px solid #f1f5f9', '&:last-child': { borderBottom: 'none' } }}>
-              <FiberManualRecord sx={{ fontSize: 10, color: entry.color }} />
-              <Typography variant="caption" sx={{ flex: 1, color: '#64748b', fontSize: 12 }}>{entry.name}</Typography>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: entry.color, fontSize: 12 }}>{entry.value}</Typography>
-              <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: 11, minWidth: 30, textAlign: 'right' }}>{pct}%</Typography>
-            </Box>
+            <div
+              key={entry.name}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '6px 0',
+                borderBottom: '1px solid #f1f5f9',
+              }}
+            >
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: entry.color, display: 'inline-block' }} />
+              <span style={{ flex: 1, color: '#64748b', fontSize: 12 }}>{entry.name}</span>
+              <span style={{ fontWeight: 700, color: entry.color, fontSize: 12 }}>{entry.value}</span>
+              <span style={{ color: '#94a3b8', fontSize: 11, minWidth: 30, textAlign: 'right' }}>{pct}%</span>
+            </div>
           )
         })}
-      </Box>
-    </Box>
+      </div>
+    </div>
   )
 }

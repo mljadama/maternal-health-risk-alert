@@ -4,14 +4,18 @@ import { useMemo } from 'react'
 import { assessRisk, RISK_LEVELS } from '../services/riskEngine.js'
 import { PROGRAM, PROGRAM_STAGE, ATTRIBUTES, DATA_ELEMENTS } from '../config/dhis2.js'
 
+// NOTE: Pagination is implemented to avoid performance issues on large deployments.
+// pageSize: 500 balances between memory usage and API calls. Can be adjusted based on system capacity.
 const PATIENTS_QUERY = {
     patients: {
         resource: 'tracker/trackedEntities',
         params: {
-            program: PROGRAM.id,
-            ouMode:  'ACCESSIBLE',
-            fields:  'trackedEntity,orgUnit,attributes,enrollments[enrollment,enrolledAt,orgUnit,orgUnitName,status]',
-            paging:  false,
+            program:   PROGRAM.id,
+            ouMode:    'ACCESSIBLE',
+            fields:    'trackedEntity,orgUnit,attributes,enrollments[enrollment,enrolledAt,orgUnit,orgUnitName,status]',
+            page:      1,
+            pageSize:  500,
+            order:     'enrolledAt:desc',
         },
     },
 }
@@ -24,7 +28,9 @@ const EVENTS_QUERY = {
             programStage: PROGRAM_STAGE.id,
             ouMode:       'ACCESSIBLE',
             fields:       'event,trackedEntity,occurredAt,orgUnit,orgUnitName,dataValues',
-            paging:       false,
+            page:         1,
+            pageSize:     500,
+            order:        'occurredAt:desc',
         },
     },
 }

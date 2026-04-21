@@ -1,26 +1,23 @@
 // src/components/common/Layout.jsx
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import {
-    Box, Divider, Drawer, IconButton, List, ListItem,
-    ListItemButton, ListItemIcon, ListItemText,
-    Typography, useMediaQuery, useTheme, AppBar, Toolbar,
-} from '@mui/material'
-import {
-    Dashboard, People, PersonAdd, Warning,
-    Menu, PregnantWoman,
-} from '@mui/icons-material'
+import styles from './Layout.module.css'
 
-const DRAWER_WIDTH = 260
 const DHIS2_HEADER_HEIGHT = 48
+const SIDEBAR_WIDTH = 260
+const MOBILE_BREAKPOINT = 768
 
 const NAV_ITEMS = [
-    { label: 'Dashboard',        icon: <Dashboard />, path: '/dashboard' },
-    { label: 'Patients',         icon: <People />,    path: '/patients'  },
-    { label: 'Register Patient', icon: <PersonAdd />, path: '/register'  },
-    { label: 'Risk Alerts',      icon: <Warning />,   path: '/alerts', badge: true },
+    { label: 'Dashboard',        icon: '📊', path: '/dashboard' },
+    { label: 'Patients',         icon: '👥', path: '/patients'  },
+    { label: 'Register Patient', icon: '➕', path: '/register'  },
+    { label: 'Risk Alerts',      icon: '⚠️', path: '/alerts', badge: true },
 ]
 
+/**
+ * Sidebar Content Component
+ * Navigation menu for the application
+ */
 function SidebarContent({ onNavigate }) {
     const navigate = useNavigate()
     const location = useLocation()
@@ -31,169 +28,126 @@ function SidebarContent({ onNavigate }) {
     }
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#0f172a', width: DRAWER_WIDTH }}>
-
+        <div className={styles.sidebar}>
             {/* Logo */}
-            <Box sx={{ p: 2.5, display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
-                <Box sx={{
-                    width: 38, height: 38, borderRadius: '10px',
-                    background: 'linear-gradient(135deg,#e91e8c,#c2185b)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                }}>
-                    <PregnantWoman sx={{ color: '#fff', fontSize: 20 }} />
-                </Box>
-                <Box>
-                    <Typography sx={{ color: '#f8fafc', fontWeight: 800, fontSize: 13, lineHeight: 1.2, whiteSpace: 'nowrap' }}>
-                        Maternal Health
-                    </Typography>
-                    <Typography sx={{ color: '#64748b', fontSize: 10, whiteSpace: 'nowrap' }}>
-                        Risk Alert System
-                    </Typography>
-                </Box>
-            </Box>
+            <div className={styles.sidebarLogo}>
+                <div className={styles.logoIcon}>♀</div>
+                <div className={styles.logoText}>
+                    <h3>Maternal Health</h3>
+                    <p>Risk Alert</p>
+                </div>
+            </div>
 
-            <Divider sx={{ borderColor: '#1e293b', mx: 2, mb: 1 }} />
+            <hr className={styles.divider} />
 
-            {/* Nav items */}
-            <List sx={{ flex: 1, px: 1.5, pt: 1 }}>
+            {/* Navigation items */}
+            <ul className={styles.navList}>
                 {NAV_ITEMS.map(item => {
                     const active =
                         location.pathname === item.path ||
                         (item.path !== '/dashboard' && location.pathname.startsWith(item.path))
                     return (
-                        <ListItem key={item.path} disablePadding sx={{ mb: 0.5 }}>
-                            <ListItemButton
+                        <li key={item.path} className={styles.navItem}>
+                            <button
                                 onClick={() => go(item.path)}
-                                sx={{
-                                    borderRadius: '10px',
-                                    py: 1.1, px: 1.5,
-                                    background:  active ? 'rgba(233,30,140,.15)' : 'transparent',
-                                    borderLeft:  active ? '3px solid #e91e8c' : '3px solid transparent',
-                                    '&:hover':   { background: 'rgba(255,255,255,.06)' },
-                                    transition:  'all .15s',
-                                }}
+                                className={`${styles.navLink} ${active ? styles.active : ''}`}
+                                aria-current={active ? 'page' : undefined}
                             >
-                                <ListItemIcon sx={{ minWidth: 38, color: active ? '#e91e8c' : '#475569' }}>
-                                    {item.icon}
-                                </ListItemIcon>
-                                <ListItemText
-                                    primary={item.label}
-                                    primaryTypographyProps={{
-                                        fontSize:   13,
-                                        fontWeight: active ? 700 : 400,
-                                        color:      active ? '#f8fafc' : '#94a3b8',
-                                        whiteSpace: 'nowrap',
-                                    }}
-                                />
-                                {item.badge && (
-                                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', flexShrink: 0, ml: 1 }} />
-                                )}
-                            </ListItemButton>
-                        </ListItem>
+                                <span className={styles.navIcon}>{item.icon}</span>
+                                <span className={styles.navLabel}>{item.label}</span>
+                                {item.badge && <span className={styles.badge} />}
+                            </button>
+                        </li>
                     )
                 })}
-            </List>
+            </ul>
 
             {/* Footer */}
-            <Box sx={{ p: 2, borderTop: '1px solid #1e293b', flexShrink: 0 }}>
-                <Typography sx={{ color: '#334155', fontSize: 11, display: 'block', mb: 0.3 }}>
-                    DHIS2 v2.42 · Local instance
-                </Typography>
-                <Typography sx={{ color: '#1e293b', fontSize: 10 }}>
-                    The Gambia · v1.0.0
-                </Typography>
-            </Box>
-        </Box>
+            <div className={styles.sidebarFooter}>
+                <p className={styles.footerText}>DHIS2 v2.38+</p>
+                <p className={styles.footerVersion}>Maternal Health v1.0.0</p>
+            </div>
+        </div>
     )
 }
 
+/**
+ * Layout Component
+ * Main app layout with sidebar navigation and responsive mobile menu
+ */
 export default function Layout({ children }) {
-    const theme    = useTheme()
-    const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-    const [open, setOpen] = useState(false)
+    const [isMobile, setIsMobile] = useState(window.innerWidth < MOBILE_BREAKPOINT)
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+        }
+        window.addEventListener('resize', handleResize)
+        return () => window.removeEventListener('resize', handleResize)
+    }, [])
 
     return (
-        <Box sx={{ display: 'flex', height: '100%' }}>
-
-            {/* Desktop sidebar — does NOT overlap DHIS2 header */}
+        <div className={styles.root}>
+            {/* Desktop Sidebar */}
             {!isMobile && (
-                <Box
-                    sx={{
-                        width:     DRAWER_WIDTH,
-                        flexShrink: 0,
-                        height:    '100%',
-                    }}
-                >
-                    <Box
-                        sx={{
-                            position: 'fixed',
-                            top:      DHIS2_HEADER_HEIGHT,
-                            left:     0,
-                            width:    DRAWER_WIDTH,
-                            height:   `calc(100vh - ${DHIS2_HEADER_HEIGHT}px)`,
-                            overflowY: 'auto',
-                            zIndex:   10,
-                        }}
-                    >
+                <div className={styles.sidebarContainer}>
+                    <div className={styles.sidebarFixed}>
                         <SidebarContent />
-                    </Box>
-                </Box>
+                    </div>
+                </div>
             )}
 
-            {/* Mobile drawer */}
+            {/* Mobile Menu */}
+            {isMobile && mobileMenuOpen && (
+                <div
+                    className={styles.mobileBackdrop}
+                    onClick={() => setMobileMenuOpen(false)}
+                    role="presentation"
+                />
+            )}
+
             {isMobile && (
-                <>
-                    <AppBar
-                        position="fixed"
-                        elevation={0}
-                        sx={{
-                            top:          DHIS2_HEADER_HEIGHT,
-                            background:   '#0f172a',
-                            borderBottom: '1px solid #1e293b',
-                            zIndex:       5,
-                        }}
-                    >
-                        <Toolbar variant="dense" sx={{ minHeight: 48 }}>
-                            <IconButton onClick={() => setOpen(true)} sx={{ color: '#f8fafc', mr: 1 }}>
-                                <Menu />
-                            </IconButton>
-                            <Box sx={{ width: 26, height: 26, borderRadius: '7px', background: 'linear-gradient(135deg,#e91e8c,#c2185b)', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 1 }}>
-                                <PregnantWoman sx={{ color: '#fff', fontSize: 15 }} />
-                            </Box>
-                            <Typography variant="body2" fontWeight={700} sx={{ color: '#f8fafc', fontSize: 13 }}>
-                                Maternal Health
-                            </Typography>
-                        </Toolbar>
-                    </AppBar>
-                    <Drawer
-                        open={open}
-                        onClose={() => setOpen(false)}
-                        PaperProps={{
-                            sx: {
-                                width:    DRAWER_WIDTH,
-                                border:   'none',
-                                top:      DHIS2_HEADER_HEIGHT,
-                                height:   `calc(100% - ${DHIS2_HEADER_HEIGHT}px)`,
-                            },
-                        }}
-                    >
-                        <SidebarContent onNavigate={() => setOpen(false)} />
-                    </Drawer>
-                </>
+                <div className={`${styles.mobileMenu} ${mobileMenuOpen ? styles.open : ''}`}>
+                    <SidebarContent onNavigate={() => setMobileMenuOpen(false)} />
+                </div>
             )}
 
-            {/* Main content */}
-            <Box
-                component="main"
-                sx={{
-                    flex:      1,
-                    minWidth:  0,
-                    overflowY: 'auto',
-                    mt:        isMobile ? '48px' : 0,
+            {/* Mobile App Bar */}
+            {isMobile && (
+                <div
+                    className={styles.mobileAppBar}
+                    style={{ top: `${DHIS2_HEADER_HEIGHT}px` }}
+                >
+                    <button
+                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            fontSize: '20px',
+                            cursor: 'pointer',
+                            padding: '8px',
+                        }}
+                        aria-label="Toggle menu"
+                    >
+                        ☰
+                    </button>
+                    <div style={{ fontSize: '18px', marginRight: '8px' }}>♀</div>
+                    <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>
+                        Maternal Health
+                    </div>
+                </div>
+            )}
+
+            {/* Main Content */}
+            <main
+                className={`${styles.content} ${isMobile ? styles.contentMobile : ''}`}
+                style={{
+                    marginTop: isMobile ? `${DHIS2_HEADER_HEIGHT + 56}px` : `${DHIS2_HEADER_HEIGHT}px`,
                 }}
             >
                 {children}
-            </Box>
-        </Box>
+            </main>
+        </div>
     )
 }

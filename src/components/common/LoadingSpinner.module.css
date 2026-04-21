@@ -1,0 +1,54 @@
+/* Loading Spinner Component Styles */
+
+.container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+}
+
+.containerFullPage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 16px;
+}
+
+.spinner {
+  border: 3px solid #e5e7eb;
+  border-top: 3px solid #6366f1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.spinnerSmall {
+  width: 24px;
+  height: 24px;
+}
+
+.spinnerMedium {
+  width: 32px;
+  height: 32px;
+}
+
+.spinnerLarge {
+  width: 40px;
+  height: 40px;
+}
+
+.message {
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}

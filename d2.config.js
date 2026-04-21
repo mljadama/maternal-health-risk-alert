@@ -11,7 +11,7 @@ const config = {
     type: 'app',
     name: 'Maternal Health Risk Alert',
     title: 'Maternal Health Risk Alert',
-    description: 'Antenatal care tracking and high-risk pregnancy detection for Gambian clinics',
+    description: 'Automated antenatal care risk assessment and patient tracking',
     minDHIS2Version: '2.38',
     entryPoints: {
         app: './src/App.jsx',

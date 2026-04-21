@@ -1,27 +1,37 @@
 ﻿// src/config/dhis2.js
-// All UIDs from local Docker DHIS2 instance (http://localhost:8080)
-// These are permanent and will never reset
+//
+// DHIS2 Metadata UIDs Configuration
+//
+// These UIDs should match your DHIS2 instance's Antenatal Care Tracker program.
+// To configure for your instance, update the UIDs below to match your metadata.
+//
+// You can find UIDs by navigating to:
+// - Maintenance → Tracker programs → [Your ANC Program] → View details
+// - The UID is displayed in the browser URL and details panel
+//
+// FUTURE: Consider using a configuration page or dataStore-based config
+// to allow users to set these UIDs without editing source code.
 
 export const PROGRAM = {
     id:   'e8KFbAy617h',
-    name: 'GMB Antenatal Care',
+    name: 'Antenatal Care',
 }
 
 export const PROGRAM_STAGE = {
     id:   'vwUpkSACTFy',
-    name: 'GMB ANC Visit',
+    name: 'ANC Visit',
 }
 
 export const TRACKED_ENTITY_TYPE = 'ioJeGoAK80X'
 
 export const ORG_UNITS = {
-    theGambia:     'XVOAXBkfqji',
-    serrекundaGH:  'ROebyw7EnRV',
-    brikаmaHC:     'nNWwjJGxneB',
-    royalVictoria: 'pNG08WuAJAs',
-    edwardFrancis: 'AEj0tm8XM1b',
-    farafenni:     'CX5ihYFpzcG',
-    bundungMCH:    'Zmw770ATyCp',
+    root:       'XVOAXBkfqji',
+    facility1:  'ROebyw7EnRV',
+    facility2:  'nNWwjJGxneB',
+    facility3:  'pNG08WuAJAs',
+    facility4:  'AEj0tm8XM1b',
+    facility5:  'CX5ihYFpzcG',
+    facility6:  'Zmw770ATyCp',
 }
 
 export const ATTRIBUTES = {

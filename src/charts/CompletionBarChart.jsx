@@ -1,6 +1,5 @@
 // src/charts/CompletionBarChart.jsx
 import React from 'react'
-import { Box, Typography } from '@mui/material'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Cell, ResponsiveContainer,
@@ -10,7 +9,7 @@ const barColor = rate => rate >= 80 ? '#16a34a' : rate >= 50 ? '#d97706' : '#dc2
 
 export default function CompletionBarChart({ data = [], height = 200 }) {
   return (
-    <Box>
+    <div>
       <ResponsiveContainer width="100%" height={height}>
         <BarChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal vertical={false} />
@@ -40,16 +39,16 @@ export default function CompletionBarChart({ data = [], height = 200 }) {
       </ResponsiveContainer>
 
       {/* Color legend */}
-      <Box sx={{ display: 'flex', gap: 2, mt: 1, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 16, marginTop: 8, flexWrap: 'wrap' }}>
         {[{ color: '#16a34a', label: '≥ 80% on track' },
           { color: '#d97706', label: '50–79% needs attention' },
           { color: '#dc2626', label: '< 50% critical' }].map(({ color, label }) => (
-          <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-            <Box sx={{ width: 8, height: 8, borderRadius: 1, background: color }} />
-            <Typography variant="caption" sx={{ color: '#64748b', fontSize: 10 }}>{label}</Typography>
-          </Box>
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block' }} />
+            <span style={{ color: '#64748b', fontSize: 10 }}>{label}</span>
+          </div>
         ))}
-      </Box>
-    </Box>
+      </div>
+    </div>
   )
 }

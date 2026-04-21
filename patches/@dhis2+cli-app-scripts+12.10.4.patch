@@ -1,0 +1,87 @@
+diff --git a/node_modules/@dhis2/cli-app-scripts/src/lib/bootstrapShell.js b/node_modules/@dhis2/cli-app-scripts/src/lib/bootstrapShell.js
+index 2572bbf..7a7955b 100644
+--- a/node_modules/@dhis2/cli-app-scripts/src/lib/bootstrapShell.js
++++ b/node_modules/@dhis2/cli-app-scripts/src/lib/bootstrapShell.js
+@@ -73,7 +73,30 @@ const bootstrapShell = ({ paths, shell, force = false }) => {
+                 destNodeModules
+             )} to ${path.relative(paths.base, srcNodeModules)}...`
+         )
+-        fs.ensureSymlinkSync(srcNodeModules, destNodeModules)
++        try {
++            // On Windows, creating symbolic links can fail without elevated rights.
++            // Prefer a junction there, and fall back to a physical copy if linking fails.
++            if (process.platform === 'win32') {
++                fs.ensureSymlinkSync(srcNodeModules, destNodeModules, 'junction')
++            } else {
++                fs.ensureSymlinkSync(srcNodeModules, destNodeModules)
++            }
++        } catch (error) {
++            if (process.platform === 'win32') {
++                reporter.print(
++                    chalk.dim(
++                        chalk.yellow(
++                            'Could not create node_modules link on Windows; falling back to copy.'
++                        )
++                    )
++                )
++                fs.copySync(srcNodeModules, destNodeModules, {
++                    dereference: true,
++                })
++            } else {
++                throw error
++            }
++        }
+     }
+ }
+ 
+diff --git a/node_modules/@dhis2/cli-app-scripts/src/lib/compiler/compile.js b/node_modules/@dhis2/cli-app-scripts/src/lib/compiler/compile.js
+index e68744b..7d9ffa9 100644
+--- a/node_modules/@dhis2/cli-app-scripts/src/lib/compiler/compile.js
++++ b/node_modules/@dhis2/cli-app-scripts/src/lib/compiler/compile.js
+@@ -16,19 +16,43 @@ const {
+ } = require('./extensionHelpers.js')
+ 
+ const watchFiles = ({ inputDir, outputDir, processFileCallback, watch }) => {
++    const isTransientFsError = (error) =>
++        error && (error.code === 'ENOENT' || error.code === 'EBUSY')
++
+     const processFile = async (source) => {
+         const relative = path.relative(inputDir, source)
+         const destination = path.join(outputDir, relative)
+         reporter.debug(`File ${relative} changed or added...`)
+-        await fs.ensureDir(path.dirname(destination))
+-        await processFileCallback(source, destination)
++        try {
++            await fs.ensureDir(path.dirname(destination))
++            await processFileCallback(source, destination)
++        } catch (error) {
++            // Ignore transient file-system races on Windows watchers.
++            if (isTransientFsError(error)) {
++                reporter.debug(
++                    `Skipping transient ${error.code} while processing ${relative}`
++                )
++                return
++            }
++            throw error
++        }
+     }
+ 
+     const removeFile = async (file) => {
+         const relative = path.relative(inputDir, file)
+         const outFile = path.join(outputDir, relative)
+         reporter.debug(`File ${relative} removed... removing: `, outFile)
+-        fs.remove(outFile)
++        try {
++            await fs.remove(outFile)
++        } catch (error) {
++            if (isTransientFsError(error)) {
++                reporter.debug(
++                    `Skipping transient ${error.code} while removing ${relative}`
++                )
++                return
++            }
++            throw error
++        }
+     }
+ 
+     return new Promise((resolve, reject) => {
