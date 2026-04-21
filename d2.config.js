@@ -11,6 +11,7 @@ const config = {
     type: 'app',
     name: 'Maternal Health Risk Alert',
     title: 'Maternal Health Risk Alert',
+    version: '1.0.1',
     description: 'Automated antenatal care risk assessment and patient tracking',
     minDHIS2Version: '2.38',
     entryPoints: {

@@ -1,6 +1,6 @@
 {
     "name": "maternal-health-risk-alert",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Automated antenatal care risk assessment and patient tracking for DHIS2",
     "license": "BSD-3-Clause",
     "private": true,
