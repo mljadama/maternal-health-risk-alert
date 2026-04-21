@@ -5,5 +5,7 @@
     "Name": "Name",
     "Domain": "Domain",
     "Value Type": "Value Type",
-    "Created by": "Created by"
+    "Created by": "Created by",
+    "__MANIFEST_APP_TITLE_Application title": "Maternal Health Risk Alert",
+    "__MANIFEST_APP_DESCRIPTION_Application description": "Automated antenatal care risk assessment and patient tracking"
 }
