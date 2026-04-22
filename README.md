@@ -36,6 +36,7 @@ This application automatically analyzes each patient's clinical data and flags h
 - Automatic risk scoring using 9 evidence-based clinical rules
 - Colour-coded risk alerts dashboard showing high, moderate and normal risk
 - Patient visit history with blood pressure and haemoglobin trend charts
+- Runtime configuration page for mapping metadata to any DHIS2 instance
 - Works on any DHIS2 instance v2.38 and above
 
 ## Risk engine
@@ -56,7 +57,7 @@ This application automatically analyzes each patient's clinical data and flags h
 
 - DHIS2 App Platform
 - React 18 and React Router v6
-- Material UI v5
+- DHIS2 UI Library
 - Recharts v2
 - DHIS2 Tracker API v42
 
@@ -80,7 +81,7 @@ npm install
 
 The app requires a Tracker program with ANC visits. You can either:
 
-**Option 1: Use the provided setup script (creates demo data)**
+**Option 1: Use the provided setup script to create demo metadata**
 
 Windows (PowerShell):
 ```powershell
@@ -95,26 +96,25 @@ chmod +x setup-dhis2.sh
 ./setup-dhis2.sh
 ```
 
-This script creates:
+These scripts create demo DHIS2 metadata that matches the app's data model:
 - ANC Program (Antenatal Care Tracker)
 - ANC Visit Program Stage (repeatable)
 - Tracked Entity Attributes (patient demographics)
 - Data Elements (vital signs and test results)
 - Organization Units (health facilities)
 
-The script writes all UIDs to `src/config/dhis2.js`.
+After setup, open the app and use the Configuration page to map your instance-specific UIDs.
 
 **Option 2: Manual configuration (use existing metadata)**
 
 If you have an existing ANC Tracker program in your DHIS2 instance:
 
 1. Find your program's UID in DHIS2 Maintenance → Tracker programs
-2. Edit `src/config/dhis2.js` and update the UIDs:
-   - `PROGRAM.id` - Your ANC Program UID
-   - `PROGRAM_STAGE.id` - Your ANC Visit stage UID
-   - `ATTRIBUTES` - Map to your tracked entity attributes
-   - `DATA_ELEMENTS` - Map to your data elements
-   - `ORG_UNITS` - Update to your organization units
+2. Open the app's Configuration page
+3. Enter the Program, Program Stage, Tracked Entity Type, attribute, and data element UIDs for your instance
+4. Save the configuration to dataStore
+
+The app will read these values at runtime, so the same build can run against different DHIS2 instances.
 
 ### Start development server
 
@@ -126,7 +126,7 @@ npm start
 
 ```bash
 npm run build
-curl.exe -X POST "http://your-dhis2/api/apps" -u "admin:password" -F "file=@build/bundle/Maternal Health Risk Alert-1.0.0.zip"
+curl.exe -X POST "http://your-dhis2/api/apps" -u "admin:password" -F "file=@build/bundle/Maternal Health Risk Alert-1.0.1.zip"
 ```
 
 ## Why this was built
