@@ -12,6 +12,7 @@ const NAV_ITEMS = [
     { label: 'Patients',         icon: '👥', path: '/patients'  },
     { label: 'Register Patient', icon: '➕', path: '/register'  },
     { label: 'Risk Alerts',      icon: '⚠️', path: '/alerts', badge: true },
+    { label: 'Configuration',    icon: '⚙️', path: '/configuration' },
 ]
 
 /**

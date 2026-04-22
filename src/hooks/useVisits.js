@@ -4,30 +4,32 @@
 
 import { useDataQuery } from '@dhis2/app-runtime'
 import { useMemo } from 'react'
-import { PROGRAM, PROGRAM_STAGE, DATA_ELEMENTS } from '../config/dhis2.js'
-
-const VISITS_QUERY = {
-    visits: {
-        resource: 'tracker/events',
-        params: ({ teiUid }) => ({
-            program:       PROGRAM.id,
-            programStage:  PROGRAM_STAGE.id,
-            trackedEntity: teiUid,
-            ouMode:        'ACCESSIBLE',
-            fields:        'event,trackedEntity,occurredAt,orgUnit,orgUnitName,status,dataValues',
-            order:         'occurredAt:asc',
-            paging:        false,
-        }),
-    },
-}
+import { useDhis2Config } from './useDhis2Config.js'
 
 const getDV = (list = [], uid) =>
     list.find(d => d.dataElement === uid)?.value ?? null
 
 export function useVisits(teiUid) {
+    const { config, loading: configLoading } = useDhis2Config()
+
+    const VISITS_QUERY = useMemo(() => ({
+        visits: {
+            resource: 'tracker/events',
+            params: ({ teiUid }) => ({
+                program:       config.program.id,
+                programStage:  config.programStage.id,
+                trackedEntity: teiUid,
+                ouMode:        'ACCESSIBLE',
+                fields:        'event,trackedEntity,occurredAt,orgUnit,orgUnitName,status,dataValues',
+                order:         'occurredAt:asc',
+                paging:        false,
+            }),
+        },
+    }), [config.program.id, config.programStage.id, teiUid])
+
     const { data, loading, error, refetch } = useDataQuery(VISITS_QUERY, {
         variables: { teiUid },
-        lazy:      !teiUid,
+        lazy:      !teiUid || configLoading,
     })
 
     const visits = useMemo(() => {
@@ -61,5 +63,5 @@ export function useVisits(teiUid) {
         ga:     v.gestationalAge,
     })), [visits])
 
-    return { visits, chartData, loading, error, refetch }
+    return { visits, chartData, loading: loading || configLoading, error, refetch }
 }

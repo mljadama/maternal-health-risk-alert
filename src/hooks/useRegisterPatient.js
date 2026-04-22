@@ -6,7 +6,7 @@
 // We then poll GET /api/tracker/jobs/{jobId} until complete.
 
 import { useDataMutation, useDataEngine } from '@dhis2/app-runtime'
-import { PROGRAM, ATTRIBUTES, TRACKED_ENTITY_TYPE } from '../config/dhis2.js'
+import { useDhis2Config } from './useDhis2Config.js'
 
 const TRACKER_MUTATION = {
     resource: 'tracker',
@@ -14,24 +14,24 @@ const TRACKER_MUTATION = {
     data:     ({ payload }) => payload,
 }
 
-function buildPayload(formValues, orgUnit) {
+function buildPayload(formValues, orgUnit, config) {
     const today = new Date().toISOString().split('T')[0]
     return {
         trackedEntities: [
             {
-                trackedEntityType: TRACKED_ENTITY_TYPE,
+                trackedEntityType: config.trackedEntityType.id,
                 orgUnit,
                 attributes: [
-                    { attribute: ATTRIBUTES.fullName,              value: String(formValues.fullName) },
-                    { attribute: ATTRIBUTES.age,                   value: String(formValues.age) },
-                    { attribute: ATTRIBUTES.village,               value: String(formValues.village) },
-                    { attribute: ATTRIBUTES.phoneNumber,           value: String(formValues.phoneNumber) },
-                    { attribute: ATTRIBUTES.parity,                value: String(formValues.parity) },
-                    { attribute: ATTRIBUTES.previousComplications, value: String(formValues.previousComplications || 'None') },
+                    { attribute: config.attributes.fullName,              value: String(formValues.fullName) },
+                    { attribute: config.attributes.age,                   value: String(formValues.age) },
+                    { attribute: config.attributes.village,               value: String(formValues.village) },
+                    { attribute: config.attributes.phoneNumber,           value: String(formValues.phoneNumber) },
+                    { attribute: config.attributes.parity,                value: String(formValues.parity) },
+                    { attribute: config.attributes.previousComplications, value: String(formValues.previousComplications || 'None') },
                 ],
                 enrollments: [
                     {
-                        program:    PROGRAM.id,
+                        program:    config.program.id,
                         orgUnit,
                         enrolledAt: today,
                         occurredAt: today,
@@ -74,9 +74,10 @@ async function pollJob(engine, jobId, maxAttempts = 10) {
 export function useRegisterPatient() {
     const [mutate, { loading, error }] = useDataMutation(TRACKER_MUTATION)
     const engine = useDataEngine()
+    const { config, loading: configLoading } = useDhis2Config()
 
     async function register(formValues, orgUnit) {
-        const payload = buildPayload(formValues, orgUnit)
+        const payload = buildPayload(formValues, orgUnit, config)
         const result  = await mutate({ payload })
 
         // v42 returns a job ID — poll for the result
@@ -98,5 +99,5 @@ export function useRegisterPatient() {
         return { teiUid, enrollmentUid: null }
     }
 
-    return { register, loading, error }
+    return { register, loading: loading || configLoading, error }
 }

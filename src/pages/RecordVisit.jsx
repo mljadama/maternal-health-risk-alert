@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useDataMutation, useDataQuery, useDataEngine } from '@dhis2/app-runtime'
-import { PROGRAM, PROGRAM_STAGE, DATA_ELEMENTS, MALARIA_RESULTS, DANGER_SIGN_OPTIONS } from '../config/dhis2.js'
 import { assessRisk, getRiskLabel } from '../services/riskEngine.js'
+import { useDhis2Config } from '../hooks/useDhis2Config.js'
 import styles from './FormPage.module.css'
 
 const today = () => new Date().toISOString().split('T')[0]
@@ -22,19 +22,6 @@ const INIT = {
   dangerSigns: [],
   nurseNotes: '',
   nextVisitDate: '',
-}
-
-const ENROLLMENT_QUERY = {
-  enrollment: {
-    resource: 'tracker/enrollments',
-    params: ({ teiUid }) => ({
-      trackedEntity: teiUid,
-      program: PROGRAM.id,
-      ouMode: 'ACCESSIBLE',
-      fields: 'enrollment,orgUnit,orgUnitName',
-      paging: false,
-    }),
-  },
 }
 
 const TRACKER_MUTATION = {
@@ -75,6 +62,22 @@ export default function RecordVisit() {
   const { teiUid } = useParams()
   const navigate = useNavigate()
   const engine = useDataEngine()
+  const { config, loading: configLoading } = useDhis2Config()
+  const malariaResults = config.malariaResults
+  const dangerSignOptions = config.dangerSignOptions
+
+  const ENROLLMENT_QUERY = useMemo(() => ({
+    enrollment: {
+      resource: 'tracker/enrollments',
+      params: ({ teiUid }) => ({
+        trackedEntity: teiUid,
+        program: config.program.id,
+        ouMode: 'ACCESSIBLE',
+        fields: 'enrollment,orgUnit,orgUnitName',
+        paging: false,
+      }),
+    },
+  }), [config.program.id])
 
   const [vals, setVals] = useState(INIT)
   const [errs, setErrs] = useState({})
@@ -83,7 +86,7 @@ export default function RecordVisit() {
   const [formMessage, setFormMessage] = useState('')
   const [loadingText, setLoadingText] = useState(false)
 
-  const { data: enrData } = useDataQuery(ENROLLMENT_QUERY, { variables: { teiUid }, lazy: !teiUid })
+  const { data: enrData } = useDataQuery(ENROLLMENT_QUERY, { variables: { teiUid }, lazy: !teiUid || configLoading })
   const [mutate, { loading }] = useDataMutation(TRACKER_MUTATION)
 
   const enrollment = enrData?.enrollment?.enrollments?.[0] ?? null
@@ -132,8 +135,8 @@ export default function RecordVisit() {
       const dangerValue = vals.dangerSigns.join(', ')
       const payload = {
         events: [{
-          program: PROGRAM.id,
-          programStage: PROGRAM_STAGE.id,
+          program: config.program.id,
+          programStage: config.programStage.id,
           orgUnit,
           trackedEntity: teiUid,
           enrollment: enrollment?.enrollment,
@@ -141,18 +144,18 @@ export default function RecordVisit() {
           scheduledAt: vals.visitDate,
           status: 'COMPLETED',
           dataValues: [
-            { dataElement: DATA_ELEMENTS.bpSystolic, value: String(vals.bpSystolic) },
-            { dataElement: DATA_ELEMENTS.bpDiastolic, value: String(vals.bpDiastolic) },
-            { dataElement: DATA_ELEMENTS.haemoglobin, value: String(vals.haemoglobin) },
-            { dataElement: DATA_ELEMENTS.weight, value: String(vals.weight) },
-            { dataElement: DATA_ELEMENTS.gestationalAge, value: String(vals.gestationalAge) },
-            { dataElement: DATA_ELEMENTS.visitNumber, value: String(vals.visitNumber) },
-            { dataElement: DATA_ELEMENTS.malariaTestResult, value: vals.malariaTestResult },
-            { dataElement: DATA_ELEMENTS.ironSupplementation, value: String(vals.ironSupplementation) },
-            { dataElement: DATA_ELEMENTS.folicAcid, value: String(vals.folicAcid) },
-            { dataElement: DATA_ELEMENTS.nurseNotes, value: vals.nurseNotes || '' },
-            { dataElement: DATA_ELEMENTS.dangerSigns, value: dangerValue },
-            { dataElement: DATA_ELEMENTS.nextVisitDate, value: vals.nextVisitDate || '' },
+            { dataElement: config.dataElements.bpSystolic, value: String(vals.bpSystolic) },
+            { dataElement: config.dataElements.bpDiastolic, value: String(vals.bpDiastolic) },
+            { dataElement: config.dataElements.haemoglobin, value: String(vals.haemoglobin) },
+            { dataElement: config.dataElements.weight, value: String(vals.weight) },
+            { dataElement: config.dataElements.gestationalAge, value: String(vals.gestationalAge) },
+            { dataElement: config.dataElements.visitNumber, value: String(vals.visitNumber) },
+            { dataElement: config.dataElements.malariaTestResult, value: vals.malariaTestResult },
+            { dataElement: config.dataElements.ironSupplementation, value: String(vals.ironSupplementation) },
+            { dataElement: config.dataElements.folicAcid, value: String(vals.folicAcid) },
+            { dataElement: config.dataElements.nurseNotes, value: vals.nurseNotes || '' },
+            { dataElement: config.dataElements.dangerSigns, value: dangerValue },
+            { dataElement: config.dataElements.nextVisitDate, value: vals.nextVisitDate || '' },
           ].filter(dv => dv.value !== ''),
         }],
       }
@@ -251,7 +254,7 @@ export default function RecordVisit() {
             <div className={styles.field}>
               <label className={styles.label}>Test result</label>
               <select className={styles.input} value={vals.malariaTestResult} onChange={e => ch('malariaTestResult', e.target.value)} disabled={!vals.malariaTestDone}>
-                {MALARIA_RESULTS.map(r => <option key={r} value={r}>{r}</option>)}
+                {malariaResults.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
           </div>
@@ -264,7 +267,7 @@ export default function RecordVisit() {
 
           <h3 className={styles.sectionTitle} style={{ marginTop: 14 }}>Danger signs</h3>
           <div className={styles.grid2}>
-            {DANGER_SIGN_OPTIONS.map(sign => (
+            {dangerSignOptions.map(sign => (
               <label key={sign} className={styles.field}>
                 <span className={styles.label}>{sign}</span>
                 <input type="checkbox" checked={vals.dangerSigns.includes(sign)} onChange={() => toggleDanger(sign)} />

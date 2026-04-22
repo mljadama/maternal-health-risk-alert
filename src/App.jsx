@@ -12,6 +12,7 @@ import {
     Navigate,
 } from 'react-router-dom'
 
+import { AppProvider } from './context/AppContext.jsx'
 import Layout          from './components/common/Layout.jsx'
 import Dashboard       from './pages/Dashboard.jsx'
 import PatientList     from './pages/PatientList.jsx'
@@ -19,6 +20,7 @@ import PatientDetail   from './pages/PatientDetail.jsx'
 import RegisterPatient from './pages/RegisterPatient.jsx'
 import RecordVisit     from './pages/RecordVisit.jsx'
 import RiskAlerts      from './pages/RiskAlerts.jsx'
+import Configuration   from './pages/Configuration.jsx'
 
 // ─────────────────────────────────────────────────────────────
 // DHIS2 DataProvider config
@@ -41,57 +43,65 @@ export default function App() {
     return (
         <DataProvider config={dhis2Config}>
             <HashRouter>
-                <Layout>
-                    <Routes>
-                        {/* Default — redirect root to dashboard */}
-                        <Route
-                            path="/"
-                            element={<Navigate to="/dashboard" replace />}
-                        />
+                <AppProvider>
+                    <Layout>
+                        <Routes>
+                            {/* Default — redirect root to dashboard */}
+                            <Route
+                                path="/"
+                                element={<Navigate to="/dashboard" replace />}
+                            />
 
-                        {/* Dashboard — KPI cards, charts, alert summary */}
-                        <Route
-                            path="/dashboard"
-                            element={<Dashboard />}
-                        />
+                            {/* Dashboard — KPI cards, charts, alert summary */}
+                            <Route
+                                path="/dashboard"
+                                element={<Dashboard />}
+                            />
 
-                        {/* Patient list — search, filter, sort */}
-                        <Route
-                            path="/patients"
-                            element={<PatientList />}
-                        />
+                            {/* Patient list — search, filter, sort */}
+                            <Route
+                                path="/patients"
+                                element={<PatientList />}
+                            />
 
-                        {/* Patient detail — visit history, trends, risk */}
-                        <Route
-                            path="/patients/:teiUid"
-                            element={<PatientDetail />}
-                        />
+                            {/* Patient detail — visit history, trends, risk */}
+                            <Route
+                                path="/patients/:teiUid"
+                                element={<PatientDetail />}
+                            />
 
-                        {/* Register — 3-step enrollment form */}
-                        <Route
-                            path="/register"
-                            element={<RegisterPatient />}
-                        />
+                            {/* Register — 3-step enrollment form */}
+                            <Route
+                                path="/register"
+                                element={<RegisterPatient />}
+                            />
 
-                        {/* Record visit — ANC visit data entry form */}
-                        <Route
-                            path="/visit/:teiUid"
-                            element={<RecordVisit />}
-                        />
+                            {/* Record visit — ANC visit data entry form */}
+                            <Route
+                                path="/visit/:teiUid"
+                                element={<RecordVisit />}
+                            />
 
-                        {/* Risk alerts — high and moderate risk patients */}
-                        <Route
-                            path="/alerts"
-                            element={<RiskAlerts />}
-                        />
+                            {/* Risk alerts — high and moderate risk patients */}
+                            <Route
+                                path="/alerts"
+                                element={<RiskAlerts />}
+                            />
 
-                        {/* Catch-all — redirect unknown paths to dashboard */}
-                        <Route
-                            path="*"
-                            element={<Navigate to="/dashboard" replace />}
-                        />
-                    </Routes>
-                </Layout>
+                            {/* Configuration — metadata mapping and dataStore persistence */}
+                            <Route
+                                path="/configuration"
+                                element={<Configuration />}
+                            />
+
+                            {/* Catch-all — redirect unknown paths to dashboard */}
+                            <Route
+                                path="*"
+                                element={<Navigate to="/dashboard" replace />}
+                            />
+                        </Routes>
+                    </Layout>
+                </AppProvider>
             </HashRouter>
         </DataProvider>
     )

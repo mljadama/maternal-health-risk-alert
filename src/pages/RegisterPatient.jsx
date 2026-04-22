@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDataQuery } from '@dhis2/app-runtime'
 import { useRegisterPatient } from '../hooks/useRegisterPatient.js'
-import { COMPLICATION_OPTIONS } from '../config/dhis2.js'
+import { useDhis2Config } from '../hooks/useDhis2Config.js'
 import styles from './FormPage.module.css'
 
 const STEPS = ['Personal details', 'Pregnancy info', 'Review & submit']
@@ -47,6 +47,7 @@ function validate(values, step) {
 
 export default function RegisterPatient() {
   const navigate = useNavigate()
+  const { config } = useDhis2Config()
   const [step, setStep] = useState(0)
   const [vals, setVals] = useState(INIT)
   const [errs, setErrs] = useState({})
@@ -186,7 +187,7 @@ export default function RegisterPatient() {
               <div className={styles.field}>
                 <label className={styles.label}>Previous complications</label>
                 <select className={styles.input} value={vals.previousComplications} onChange={e => change('previousComplications', e.target.value)}>
-                  {COMPLICATION_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                  {config.complicationOptions.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
                 <div className={styles.hint}>Most significant previous complication</div>
               </div>

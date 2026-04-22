@@ -1,7 +1,7 @@
 // src/components/patients/PatientForm.jsx
 // Shared demographic form fields used by the registration page.
 import React from 'react'
-import { COMPLICATION_OPTIONS } from '../../config/dhis2.js'
+import { useDhis2Config } from '../../hooks/useDhis2Config.js'
 import styles from './PatientForm.module.css'
 
 /**
@@ -113,6 +113,8 @@ export function PersonalDetailsFields({ values, errors, onChange, orgUnits = [],
  * Captures pregnancy-specific information
  */
 export function PregnancyDetailsFields({ values, errors, onChange }) {
+  const { config } = useDhis2Config()
+
   return (
     <div className={styles.grid}>
       {/* Gestational Age and Parity in two columns */}
@@ -158,7 +160,7 @@ export function PregnancyDetailsFields({ values, errors, onChange }) {
           onChange={e => onChange('previousComplications', e.target.value)}
         >
           <option value="">None</option>
-          {COMPLICATION_OPTIONS.map(c => (
+          {config.complicationOptions.map(c => (
             <option key={c} value={c}>{c}</option>
           ))}
         </select>

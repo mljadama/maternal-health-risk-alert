@@ -2,58 +2,60 @@
 import { useDataQuery } from '@dhis2/app-runtime'
 import { useMemo } from 'react'
 import { assessRisk, RISK_LEVELS } from '../services/riskEngine.js'
-import { PROGRAM, PROGRAM_STAGE, ATTRIBUTES, DATA_ELEMENTS } from '../config/dhis2.js'
+import { useDhis2Config } from './useDhis2Config.js'
 
 // NOTE: Pagination is implemented to avoid performance issues on large deployments.
 // pageSize: 500 balances between memory usage and API calls. Can be adjusted based on system capacity.
-const PATIENTS_QUERY = {
-    patients: {
-        resource: 'tracker/trackedEntities',
-        params: {
-            program:   PROGRAM.id,
-            ouMode:    'ACCESSIBLE',
-            fields:    'trackedEntity,orgUnit,attributes,enrollments[enrollment,enrolledAt,orgUnit,orgUnitName,status]',
-            page:      1,
-            pageSize:  500,
-            order:     'enrolledAt:desc',
-        },
-    },
-}
-
-const EVENTS_QUERY = {
-    events: {
-        resource: 'tracker/events',
-        params: {
-            program:      PROGRAM.id,
-            programStage: PROGRAM_STAGE.id,
-            ouMode:       'ACCESSIBLE',
-            fields:       'event,trackedEntity,occurredAt,orgUnit,orgUnitName,dataValues',
-            page:         1,
-            pageSize:     500,
-            order:        'occurredAt:desc',
-        },
-    },
-}
-
-const ORG_UNITS_QUERY = {
-    orgUnits: {
-        resource: 'organisationUnits',
-        params: {
-            fields: 'id,displayName',
-            paging: false,
-        },
-    },
-}
-
 const getAttr = (list = [], uid) => list.find(a => a.attribute === uid)?.value ?? null
 const getDV   = (list = [], uid) => list.find(d => d.dataElement === uid)?.value ?? null
 
 export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODERATE] } = {}) {
-    const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY)
-    const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY)
-    const { data: ouData, loading: ol } = useDataQuery(ORG_UNITS_QUERY)
+    const { config, loading: configLoading } = useDhis2Config()
 
-    const loading = pl || el || ol
+    const PATIENTS_QUERY = useMemo(() => ({
+        patients: {
+            resource: 'tracker/trackedEntities',
+            params: {
+                program:   config.program.id,
+                ouMode:    'ACCESSIBLE',
+                fields:    'trackedEntity,orgUnit,attributes,enrollments[enrollment,enrolledAt,orgUnit,orgUnitName,status]',
+                page:      1,
+                pageSize:  500,
+                order:     'enrolledAt:desc',
+            },
+        },
+    }), [config.program.id])
+
+    const EVENTS_QUERY = useMemo(() => ({
+        events: {
+            resource: 'tracker/events',
+            params: {
+                program:      config.program.id,
+                programStage: config.programStage.id,
+                ouMode:       'ACCESSIBLE',
+                fields:       'event,trackedEntity,occurredAt,orgUnit,orgUnitName,dataValues',
+                page:         1,
+                pageSize:     500,
+                order:        'occurredAt:desc',
+            },
+        },
+    }), [config.program.id, config.programStage.id])
+
+    const ORG_UNITS_QUERY = useMemo(() => ({
+        orgUnits: {
+            resource: 'organisationUnits',
+            params: {
+                fields: 'id,displayName',
+                paging: false,
+            },
+        },
+    }), [])
+
+    const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: configLoading })
+    const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: configLoading })
+    const { data: ouData, loading: ol } = useDataQuery(ORG_UNITS_QUERY, { lazy: configLoading })
+
+    const loading = pl || el || ol || configLoading
     const error   = pe || ee
 
     const ouMap = useMemo(() => {

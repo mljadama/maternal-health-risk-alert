@@ -4,32 +4,7 @@
 import { useDataQuery } from '@dhis2/app-runtime'
 import { useMemo } from 'react'
 import { assessRisk, RISK_LEVELS } from '../services/riskEngine.js'
-import { PROGRAM, PROGRAM_STAGE, ATTRIBUTES, DATA_ELEMENTS } from '../config/dhis2.js'
-
-const PATIENTS_QUERY = {
-    patients: {
-        resource: 'tracker/trackedEntities',
-        params: {
-            program: PROGRAM.id,
-            ouMode:  'ACCESSIBLE',
-            fields:  'trackedEntity,attributes,enrollments[enrollment,enrolledAt,orgUnit]',
-            paging:  false,
-        },
-    },
-}
-
-const EVENTS_QUERY = {
-    events: {
-        resource: 'tracker/events',
-        params: {
-            program:      PROGRAM.id,
-            programStage: PROGRAM_STAGE.id,
-            ouMode:       'ACCESSIBLE',
-            fields:       'event,trackedEntity,occurredAt,dataValues',
-            paging:       false,
-        },
-    },
-}
+import { useDhis2Config } from './useDhis2Config.js'
 
 const getAttr = (list = [], uid) => list.find(a => a.attribute === uid)?.value ?? null
 const getDV   = (list = [], uid) => list.find(d => d.dataElement === uid)?.value ?? null
@@ -78,10 +53,37 @@ function buildCompletion(patients, byTEI) {
 }
 
 export function useDashboardData() {
-    const { data: pData, loading: pl, error: pe } = useDataQuery(PATIENTS_QUERY)
-    const { data: eData, loading: el, error: ee } = useDataQuery(EVENTS_QUERY)
+    const { config, loading: configLoading } = useDhis2Config()
 
-    const loading = pl || el
+    const PATIENTS_QUERY = useMemo(() => ({
+        patients: {
+            resource: 'tracker/trackedEntities',
+            params: {
+                program: config.program.id,
+                ouMode:  'ACCESSIBLE',
+                fields:  'trackedEntity,attributes,enrollments[enrollment,enrolledAt,orgUnit]',
+                paging:  false,
+            },
+        },
+    }), [config.program.id])
+
+    const EVENTS_QUERY = useMemo(() => ({
+        events: {
+            resource: 'tracker/events',
+            params: {
+                program:      config.program.id,
+                programStage: config.programStage.id,
+                ouMode:       'ACCESSIBLE',
+                fields:       'event,trackedEntity,occurredAt,dataValues',
+                paging:       false,
+            },
+        },
+    }), [config.program.id, config.programStage.id])
+
+    const { data: pData, loading: pl, error: pe } = useDataQuery(PATIENTS_QUERY, { lazy: configLoading })
+    const { data: eData, loading: el, error: ee } = useDataQuery(EVENTS_QUERY, { lazy: configLoading })
+
+    const loading = pl || el || configLoading
     const error   = pe || ee
 
     const stats = useMemo(() => {

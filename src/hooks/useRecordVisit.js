@@ -13,7 +13,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { useDataMutation } from '@dhis2/app-runtime'
-import { PROGRAM, PROGRAM_STAGE, DATA_ELEMENTS } from '../config/dhis2.js'
+import { useDhis2Config } from './useDhis2Config.js'
 
 // ── v42 Tracker mutation ──────────────────────────────────────
 const TRACKER_EVENT_MUTATION = {
@@ -44,7 +44,7 @@ const TRACKER_EVENT_MUTATION = {
  * @param {string} enrollment     - enrollment UID
  * @param {string} orgUnit        - facility UID
  */
-export function buildEventPayload(formValues, trackedEntity, enrollment, orgUnit) {
+export function buildEventPayload(formValues, trackedEntity, enrollment, orgUnit, config) {
     const {
         visitDate,
         visitNumber,
@@ -66,25 +66,25 @@ export function buildEventPayload(formValues, trackedEntity, enrollment, orgUnit
         : dangerSigns || ''
 
     const dataValues = [
-        { dataElement: DATA_ELEMENTS.bpSystolic,          value: String(bpSystolic || '') },
-        { dataElement: DATA_ELEMENTS.bpDiastolic,         value: String(bpDiastolic || '') },
-        { dataElement: DATA_ELEMENTS.haemoglobin,         value: String(haemoglobin || '') },
-        { dataElement: DATA_ELEMENTS.weight,              value: String(weight || '') },
-        { dataElement: DATA_ELEMENTS.gestationalAge,      value: String(gestationalAge || '') },
-        { dataElement: DATA_ELEMENTS.visitNumber,         value: String(visitNumber || 1) },
-        { dataElement: DATA_ELEMENTS.malariaTestResult,   value: malariaTestResult || 'Not done' },
-        { dataElement: DATA_ELEMENTS.ironSupplementation, value: ironSupplementation ? 'true' : 'false' },
-        { dataElement: DATA_ELEMENTS.folicAcid,           value: folicAcid ? 'true' : 'false' },
-        { dataElement: DATA_ELEMENTS.nurseNotes,          value: nurseNotes || '' },
-        { dataElement: DATA_ELEMENTS.dangerSigns,         value: dangerSignsValue },
-        { dataElement: DATA_ELEMENTS.nextVisitDate,       value: nextVisitDate || '' },
+        { dataElement: config.dataElements.bpSystolic,          value: String(bpSystolic || '') },
+        { dataElement: config.dataElements.bpDiastolic,         value: String(bpDiastolic || '') },
+        { dataElement: config.dataElements.haemoglobin,         value: String(haemoglobin || '') },
+        { dataElement: config.dataElements.weight,              value: String(weight || '') },
+        { dataElement: config.dataElements.gestationalAge,      value: String(gestationalAge || '') },
+        { dataElement: config.dataElements.visitNumber,         value: String(visitNumber || 1) },
+        { dataElement: config.dataElements.malariaTestResult,   value: malariaTestResult || 'Not done' },
+        { dataElement: config.dataElements.ironSupplementation, value: ironSupplementation ? 'true' : 'false' },
+        { dataElement: config.dataElements.folicAcid,           value: folicAcid ? 'true' : 'false' },
+        { dataElement: config.dataElements.nurseNotes,          value: nurseNotes || '' },
+        { dataElement: config.dataElements.dangerSigns,         value: dangerSignsValue },
+        { dataElement: config.dataElements.nextVisitDate,       value: nextVisitDate || '' },
     ].filter(dv => dv.value !== '')
 
     return {
         events: [
             {
-                program:      PROGRAM.id,
-                programStage: PROGRAM_STAGE.id,
+                program:      config.program.id,
+                programStage: config.programStage.id,
                 orgUnit:      orgUnit,
                 trackedEntity: trackedEntity,
                 enrollment:   enrollment,
@@ -109,12 +109,13 @@ export function buildEventPayload(formValues, trackedEntity, enrollment, orgUnit
  */
 export function useRecordVisit() {
     const [submitEvent, { loading, error, data }] = useDataMutation(TRACKER_EVENT_MUTATION)
+    const { config, loading: configLoading } = useDhis2Config()
 
     const lastEventUid =
         data?.bundleReport?.typeReportMap?.EVENT?.objectReports?.[0]?.uid ?? null
 
     async function recordVisit(formValues, teiUid, enrollmentUid, orgUnit) {
-        const payload = buildEventPayload(formValues, teiUid, enrollmentUid, orgUnit)
+        const payload = buildEventPayload(formValues, teiUid, enrollmentUid, orgUnit, config)
         const result  = await submitEvent({ payload })
 
         // Extract event UID from v42 response
@@ -130,5 +131,5 @@ export function useRecordVisit() {
         return { eventUid }
     }
 
-    return { recordVisit, loading, error, lastEventUid }
+    return { recordVisit, loading: loading || configLoading, error, lastEventUid }
 }

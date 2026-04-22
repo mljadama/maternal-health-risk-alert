@@ -5,7 +5,7 @@
 // or called directly via the DHIS2 app runtime engine.
 // ─────────────────────────────────────────────────────────────
 
-import { PROGRAM, ATTRIBUTES, TRACKED_ENTITY_TYPE } from '../config/dhis2.js'
+import { DEFAULT_APP_SETTINGS } from '../config/appSettings.js'
 
 /**
  * buildRegistrationPayload
@@ -23,7 +23,7 @@ import { PROGRAM, ATTRIBUTES, TRACKED_ENTITY_TYPE } from '../config/dhis2.js'
  * @param {string} orgUnit     - UID of the selected health facility
  * @returns {object}           - payload ready to POST to DHIS2
  */
-export function buildRegistrationPayload(formValues, orgUnit) {
+export function buildRegistrationPayload(formValues, orgUnit, config = DEFAULT_APP_SETTINGS) {
   const {
     fullName,
     age,
@@ -34,15 +34,15 @@ export function buildRegistrationPayload(formValues, orgUnit) {
   } = formValues
 
   return {
-    trackedEntityType: TRACKED_ENTITY_TYPE,
+    trackedEntityType: config.trackedEntityType.id,
     orgUnit,
     attributes: [
-      { attribute: ATTRIBUTES.fullName,              value: fullName },
-      { attribute: ATTRIBUTES.age,                   value: String(age) },
-      { attribute: ATTRIBUTES.village,               value: village },
-      { attribute: ATTRIBUTES.phoneNumber,           value: phoneNumber },
-      { attribute: ATTRIBUTES.parity,                value: String(parity) },
-      { attribute: ATTRIBUTES.previousComplications, value: previousComplications },
+      { attribute: config.attributes.fullName,              value: fullName },
+      { attribute: config.attributes.age,                   value: String(age) },
+      { attribute: config.attributes.village,               value: village },
+      { attribute: config.attributes.phoneNumber,           value: phoneNumber },
+      { attribute: config.attributes.parity,                value: String(parity) },
+      { attribute: config.attributes.previousComplications, value: previousComplications },
     ],
   }
 }
@@ -65,10 +65,11 @@ export function buildEnrollmentPayload(
   trackedEntityInstance,
   orgUnit,
   enrollmentDate,
-  gestationalAge
+  gestationalAge,
+  config = DEFAULT_APP_SETTINGS
 ) {
   return {
-    program: PROGRAM.id,
+    program: config.program.id,
     trackedEntityInstance,
     orgUnit,
     enrollmentDate,
