@@ -6,6 +6,8 @@
 # Place this file in the project root next to package.json
 # Then run: chmod +x setup-dhis2.sh && ./setup-dhis2.sh
 
+set -u
+
 SERVER="http://localhost:8080"
 USER="admin"
 PASS="district"
@@ -25,8 +27,20 @@ post_json() {
         -H "Content-Type: application/json" \
         -d "$obj")
     
+    if echo "$response" | grep -qi '"httpStatus":"ERROR"\|Exception\|ImportSummary'; then
+        echo "ERROR creating $path" >&2
+        echo "$response" >&2
+        return 1
+    fi
+
     # Extract UID from response
-    echo "$response" | grep -o '"uid":"[a-zA-Z0-9]\{11\}"' | head -1 | cut -d'"' -f4
+    local uid=$(echo "$response" | grep -o '"uid":"[a-zA-Z0-9]\{11\}"' | head -1 | cut -d'"' -f4)
+    if [ -z "$uid" ]; then
+        echo "ERROR: Could not parse UID for $path" >&2
+        echo "$response" >&2
+        return 1
+    fi
+    echo "$uid"
 }
 
 # Helper function to PUT JSON to DHIS2 API
@@ -50,6 +64,15 @@ share() {
     put_json "$type/$uid/sharing" '{"object":{"publicAccess":"rwrw----"}}'
 }
 
+require_uid() {
+    local label="$1"
+    local value="$2"
+    if [ -z "$value" ]; then
+        echo "ERROR: $label was not created successfully." >&2
+        exit 1
+    fi
+}
+
 echo ""
 echo "============================================"
 echo "  Maternal Health Risk Alert - DHIS2 Setup"
@@ -61,6 +84,7 @@ echo "Step 1: Organisation units..."
 
 gid=$(post_json "organisationUnits" \
     '{"name":"The Gambia","shortName":"Gambia","code":"GMB","openingDate":"1965-02-18"}')
+require_uid "root organisation unit" "$gid"
 echo "  The Gambia: $gid"
 
 # Helper function to create hospital
@@ -188,6 +212,7 @@ prog_uid=$(post_json "programs" \
 }')
 
 echo "  Program UID: $prog_uid"
+require_uid "program" "$prog_uid"
 share "programs" "$prog_uid"
 
 # ── Step 5: Program Stage ─────────────────────────────────────
@@ -217,7 +242,63 @@ stage_uid=$(post_json "programStages" \
 }')
 
 echo "  Program Stage UID: $stage_uid"
+require_uid "program stage" "$stage_uid"
 share "programStages" "$stage_uid"
+
+# ── Step 6: Seed runtime app configuration ──────────────────
+echo ""
+echo "Step 6: Seeding runtime app configuration..."
+
+config_json=$(cat <<EOF
+{
+    "program": {"id": "$prog_uid", "name": "GMB Antenatal Care"},
+    "programStage": {"id": "$stage_uid", "name": "GMB ANC Visit"},
+    "trackedEntityType": {"id": "nEenWmSyUEp"},
+    "attributes": {
+        "fullName": "$a1",
+        "age": "$a2",
+        "village": "$a3",
+        "phoneNumber": "$a4",
+        "parity": "$a5",
+        "previousComplications": "$a6"
+    },
+    "dataElements": {
+        "bpSystolic": "$d1",
+        "bpDiastolic": "$d2",
+        "haemoglobin": "$d3",
+        "weight": "$d4",
+        "gestationalAge": "$d5",
+        "visitNumber": "$d6",
+        "malariaTestResult": "$d7",
+        "ironSupplementation": "$d8",
+        "folicAcid": "$d9",
+        "nurseNotes": "$d10",
+        "dangerSigns": "$d11",
+        "nextVisitDate": "$d12"
+    },
+    "thresholds": {
+        "AGE_MIN": 18, "AGE_MAX": 35,
+        "BP_SYSTOLIC_HIGH": 140, "BP_DIASTOLIC_HIGH": 90,
+        "BP_SYSTOLIC_SEVERE": 160, "BP_DIASTOLIC_SEVERE": 110,
+        "HB_NORMAL_MIN": 11.0, "HB_MODERATE_ANAEMIA": 8.0, "HB_SEVERE_ANAEMIA": 7.0,
+        "ANC_MINIMUM_VISITS": 4, "FIRST_TRIMESTER_WEEKS": 13,
+        "GRAND_MULTIPARA_THRESHOLD": 4,
+        "SCORE_HIGH": 40, "SCORE_MODERATE": 20
+    },
+    "malariaResults": ["Negative", "Positive (P. falciparum)", "Positive (P. vivax)", "Not done"],
+    "dangerSignOptions": ["Severe headache", "Blurred vision", "Severe abdominal pain", "Vaginal bleeding", "Convulsions", "Difficulty breathing", "Reduced fetal movement", "Swelling of face/hands"],
+    "complicationOptions": ["None", "Pre-eclampsia", "Gestational diabetes", "Placenta previa", "Previous C-section", "Postpartum haemorrhage", "Anaemia", "Preterm birth", "Stillbirth", "Miscarriage"],
+    "riskColors": {
+        "high": {"main": "#dc2626", "light": "#fef2f2", "border": "#fecaca", "dark": "#991b1b"},
+        "moderate": {"main": "#d97706", "light": "#fffbeb", "border": "#fde68a", "dark": "#92400e"},
+        "normal": {"main": "#16a34a", "light": "#f0fdf4", "border": "#bbf7d0", "dark": "#14532d"}
+    }
+}
+EOF
+)
+
+put_json "dataStore/maternal_health_risk_alert/config" "$config_json"
+echo "  Configuration saved to dataStore"
 
 # ── Step 6: Write dhis2.js ────────────────────────────────────
 echo ""

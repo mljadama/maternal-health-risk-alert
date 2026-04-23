@@ -13,10 +13,10 @@
 
 .sidebarFixed {
   position: fixed;
-  top: 48px;
+  top: 0;
   left: 0;
   width: 260px;
-  height: calc(100vh - 48px);
+  height: 100vh;
   overflow-y: auto;
   z-index: 10;
 }

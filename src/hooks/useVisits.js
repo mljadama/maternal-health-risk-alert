@@ -11,6 +11,7 @@ const getDV = (list = [], uid) =>
 
 export function useVisits(teiUid) {
     const { config, loading: configLoading } = useDhis2Config()
+    const { dataElements } = config
 
     const VISITS_QUERY = useMemo(() => ({
         visits: {
@@ -40,17 +41,17 @@ export function useVisits(teiUid) {
             facility:      ev.orgUnitName ?? '—',
             orgUnit:       ev.orgUnit,
             visitNumber:   idx + 1,
-            bpSystolic:    Number(getDV(ev.dataValues, DATA_ELEMENTS.bpSystolic))    || null,
-            bpDiastolic:   Number(getDV(ev.dataValues, DATA_ELEMENTS.bpDiastolic))   || null,
-            haemoglobin:   Number(getDV(ev.dataValues, DATA_ELEMENTS.haemoglobin))   || null,
-            weight:        Number(getDV(ev.dataValues, DATA_ELEMENTS.weight))        || null,
-            gestationalAge:Number(getDV(ev.dataValues, DATA_ELEMENTS.gestationalAge))|| null,
-            malariaResult: getDV(ev.dataValues, DATA_ELEMENTS.malariaTestResult),
-            ironGiven:     getDV(ev.dataValues, DATA_ELEMENTS.ironSupplementation) === 'true',
-            folicGiven:    getDV(ev.dataValues, DATA_ELEMENTS.folicAcid) === 'true',
-            dangerSigns:   (getDV(ev.dataValues, DATA_ELEMENTS.dangerSigns) || '').split(',').map(s => s.trim()).filter(Boolean),
-            nurseNotes:    getDV(ev.dataValues, DATA_ELEMENTS.nurseNotes),
-            nextVisitDate: getDV(ev.dataValues, DATA_ELEMENTS.nextVisitDate),
+            bpSystolic:    Number(getDV(ev.dataValues, dataElements.bpSystolic))    || null,
+            bpDiastolic:   Number(getDV(ev.dataValues, dataElements.bpDiastolic))   || null,
+            haemoglobin:   Number(getDV(ev.dataValues, dataElements.haemoglobin))   || null,
+            weight:        Number(getDV(ev.dataValues, dataElements.weight))        || null,
+            gestationalAge:Number(getDV(ev.dataValues, dataElements.gestationalAge))|| null,
+            malariaResult: getDV(ev.dataValues, dataElements.malariaTestResult),
+            ironGiven:     getDV(ev.dataValues, dataElements.ironSupplementation) === 'true',
+            folicGiven:    getDV(ev.dataValues, dataElements.folicAcid) === 'true',
+            dangerSigns:   (getDV(ev.dataValues, dataElements.dangerSigns) || '').split(',').map(s => s.trim()).filter(Boolean),
+            nurseNotes:    getDV(ev.dataValues, dataElements.nurseNotes),
+            nextVisitDate: getDV(ev.dataValues, dataElements.nextVisitDate),
         }))
     }, [data])
 

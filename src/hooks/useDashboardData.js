@@ -25,9 +25,9 @@ function buildMonthlyTrend(events) {
         const key = ev.occurredAt?.slice(0, 7)
         if (!buckets[key]) return
         buckets[key].visits += 1
-        const sys = Number(getDV(ev.dataValues, DATA_ELEMENTS.bpSystolic))
-        const dia = Number(getDV(ev.dataValues, DATA_ELEMENTS.bpDiastolic))
-        const hb  = Number(getDV(ev.dataValues, DATA_ELEMENTS.haemoglobin))
+        const sys = Number(getDV(ev.dataValues, dataElements.bpSystolic))
+        const dia = Number(getDV(ev.dataValues, dataElements.bpDiastolic))
+        const hb  = Number(getDV(ev.dataValues, dataElements.haemoglobin))
         if (sys >= 140 || dia >= 90 || hb < 7) buckets[key].high += 1
     })
     return Object.values(buckets)
@@ -54,6 +54,7 @@ function buildCompletion(patients, byTEI) {
 
 export function useDashboardData() {
     const { config, loading: configLoading } = useDhis2Config()
+    const { attributes, dataElements } = config
 
     const PATIENTS_QUERY = useMemo(() => ({
         patients: {
@@ -107,29 +108,29 @@ export function useDashboardData() {
             const visits = byTEI[id] ?? []
             const latest = visits[0] ?? null
             const first  = visits[visits.length - 1] ?? null
-            const ga     = latest ? Number(getDV(latest.dataValues, DATA_ELEMENTS.gestationalAge)) : null
-            const age    = Number(getAttr(tei.attributes, ATTRIBUTES.age))    || null
-            const parity = Number(getAttr(tei.attributes, ATTRIBUTES.parity)) || 0
-            const comp   = getAttr(tei.attributes, ATTRIBUTES.previousComplications)
-            const danger = latest ? (getDV(latest.dataValues, DATA_ELEMENTS.dangerSigns) || '').split(',').filter(Boolean) : []
+            const ga     = latest ? Number(getDV(latest.dataValues, dataElements.gestationalAge)) : null
+            const age    = Number(getAttr(tei.attributes, attributes.age))    || null
+            const parity = Number(getAttr(tei.attributes, attributes.parity)) || 0
+            const comp   = getAttr(tei.attributes, attributes.previousComplications)
+            const danger = latest ? (getDV(latest.dataValues, dataElements.dangerSigns) || '').split(',').filter(Boolean) : []
 
             const assessment = assessRisk(
                 { age, parity, previousComplications: comp },
                 {
                     totalVisits:         visits.length,
                     currentWeek:         ga ?? 0,
-                    firstVisitWeek:      first ? Number(getDV(first.dataValues, DATA_ELEMENTS.gestationalAge)) : null,
-                    latestBpSystolic:    latest ? Number(getDV(latest.dataValues, DATA_ELEMENTS.bpSystolic))    : null,
-                    latestBpDiastolic:   latest ? Number(getDV(latest.dataValues, DATA_ELEMENTS.bpDiastolic))   : null,
-                    latestHaemoglobin:   latest ? Number(getDV(latest.dataValues, DATA_ELEMENTS.haemoglobin))   : null,
-                    latestMalariaResult: latest ? getDV(latest.dataValues, DATA_ELEMENTS.malariaTestResult)     : null,
+                    firstVisitWeek:      first ? Number(getDV(first.dataValues, dataElements.gestationalAge)) : null,
+                    latestBpSystolic:    latest ? Number(getDV(latest.dataValues, dataElements.bpSystolic))    : null,
+                    latestBpDiastolic:   latest ? Number(getDV(latest.dataValues, dataElements.bpDiastolic))   : null,
+                    latestHaemoglobin:   latest ? Number(getDV(latest.dataValues, dataElements.haemoglobin))   : null,
+                    latestMalariaResult: latest ? getDV(latest.dataValues, dataElements.malariaTestResult)     : null,
                     dangerSigns:         danger,
                 }
             )
 
             return {
                 teiUid:     id,
-                name:       getAttr(tei.attributes, ATTRIBUTES.fullName) ?? 'Unknown',
+                name:       getAttr(tei.attributes, attributes.fullName) ?? 'Unknown',
                 age,
                 ga,
                 totalVisits: visits.length,

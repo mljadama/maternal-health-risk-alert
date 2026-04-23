@@ -3,6 +3,8 @@
 # Place this file in the project root next to package.json
 # Then run: .\setup-dhis2.ps1
 
+$ErrorActionPreference = 'Stop'
+
 $SERVER = "http://localhost:8080"
 $USER     = "admin"
 $PASS     = "district"
@@ -22,7 +24,7 @@ function PostJSON($path, $obj) {
         if ($_.Exception.Message -match '"uid":"([a-zA-Z0-9]{11})"') {
             return $matches[1]
         }
-        Write-Host "  WARN $path : $($_.Exception.Message.Substring(0, [Math]::Min(120,$_.Exception.Message.Length)))" -ForegroundColor DarkYellow
+        Write-Host "  ERROR $path : $($_.Exception.Message.Substring(0, [Math]::Min(160,$_.Exception.Message.Length)))" -ForegroundColor Red
         return $null
     }
 }
@@ -53,6 +55,7 @@ $gid = PostJSON "organisationUnits" @{
     code        = "GMB"
     openingDate = "1965-02-18"
 }
+if (-not $gid) { throw "Root organisation unit was not created successfully." }
 Write-Host "  The Gambia: $gid"
 
 function MakeHospital($name, $short, $code, $date) {
@@ -177,6 +180,7 @@ $progUid = PostJSON "programs" @{
     )
 }
 Write-Host "  Program UID: $progUid"
+if (-not $progUid) { throw "Program was not created successfully." }
 Share "programs" $progUid
 
 # ── Step 5: Program Stage ─────────────────────────────────────
@@ -204,7 +208,57 @@ $stageUid = PostJSON "programStages" @{
     )
 }
 Write-Host "  Program Stage UID: $stageUid"
+if (-not $stageUid) { throw "Program stage was not created successfully." }
 Share "programStages" $stageUid
+
+Write-Host ""
+Write-Host "Step 6: Seeding runtime app configuration..." -ForegroundColor Yellow
+$config = @{
+    program = @{ id = $progUid; name = "GMB Antenatal Care" }
+    programStage = @{ id = $stageUid; name = "GMB ANC Visit" }
+    trackedEntityType = @{ id = "nEenWmSyUEp" }
+    attributes = @{
+        fullName = $a1
+        age = $a2
+        village = $a3
+        phoneNumber = $a4
+        parity = $a5
+        previousComplications = $a6
+    }
+    dataElements = @{
+        bpSystolic = $d1
+        bpDiastolic = $d2
+        haemoglobin = $d3
+        weight = $d4
+        gestationalAge = $d5
+        visitNumber = $d6
+        malariaTestResult = $d7
+        ironSupplementation = $d8
+        folicAcid = $d9
+        nurseNotes = $d10
+        dangerSigns = $d11
+        nextVisitDate = $d12
+    }
+    thresholds = @{
+        AGE_MIN = 18; AGE_MAX = 35; BP_SYSTOLIC_HIGH = 140; BP_DIASTOLIC_HIGH = 90; BP_SYSTOLIC_SEVERE = 160; BP_DIASTOLIC_SEVERE = 110; HB_NORMAL_MIN = 11.0; HB_MODERATE_ANAEMIA = 8.0; HB_SEVERE_ANAEMIA = 7.0; ANC_MINIMUM_VISITS = 4; FIRST_TRIMESTER_WEEKS = 13; GRAND_MULTIPARA_THRESHOLD = 4; SCORE_HIGH = 40; SCORE_MODERATE = 20
+    }
+    malariaResults = @("Negative", "Positive (P. falciparum)", "Positive (P. vivax)", "Not done")
+    dangerSignOptions = @("Severe headache", "Blurred vision", "Severe abdominal pain", "Vaginal bleeding", "Convulsions", "Difficulty breathing", "Reduced fetal movement", "Swelling of face/hands")
+    complicationOptions = @("None", "Pre-eclampsia", "Gestational diabetes", "Placenta previa", "Previous C-section", "Postpartum haemorrhage", "Anaemia", "Preterm birth", "Stillbirth", "Miscarriage")
+    riskColors = @{
+        high = @{ main = '#dc2626'; light = '#fef2f2'; border = '#fecaca'; dark = '#991b1b' }
+        moderate = @{ main = '#d97706'; light = '#fffbeb'; border = '#fde68a'; dark = '#92400e' }
+        normal = @{ main = '#16a34a'; light = '#f0fdf4'; border = '#bbf7d0'; dark = '#14532d' }
+    }
+} | ConvertTo-Json -Depth 8 -Compress
+
+try {
+    Invoke-RestMethod -Uri "$base/dataStore/maternal_health_risk_alert/config" -Method Put -Headers $headers -Body $config -MaximumRedirection 5 | Out-Null
+} catch {
+    Invoke-RestMethod -Uri "$base/dataStore/maternal_health_risk_alert/config" -Method Post -Headers $headers -Body $config -MaximumRedirection 5 | Out-Null
+}
+
+Write-Host "  Configuration saved to dataStore" -ForegroundColor Green
 
 # ── Step 6: Write dhis2.js ────────────────────────────────────
 Write-Host ""

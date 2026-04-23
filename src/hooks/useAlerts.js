@@ -11,6 +11,7 @@ const getDV   = (list = [], uid) => list.find(d => d.dataElement === uid)?.value
 
 export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODERATE] } = {}) {
     const { config, loading: configLoading } = useDhis2Config()
+    const { attributes, dataElements } = config
 
     const PATIENTS_QUERY = useMemo(() => ({
         patients: {
@@ -90,12 +91,12 @@ export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODER
                 const firstVisit = visits[visits.length - 1] ?? null
                 const enrollment = tei.enrollments?.[0] ?? {}
 
-                const age      = Number(getAttr(tei.attributes, ATTRIBUTES.age))    || null
-                const parity   = Number(getAttr(tei.attributes, ATTRIBUTES.parity)) || 0
-                const prevComp = getAttr(tei.attributes, ATTRIBUTES.previousComplications)
-                const latestGA = latest ? Number(getDV(latest.dataValues, DATA_ELEMENTS.gestationalAge)) : null
-                const firstGA  = firstVisit ? Number(getDV(firstVisit.dataValues, DATA_ELEMENTS.gestationalAge)) : null
-                const danger   = latest ? (getDV(latest.dataValues, DATA_ELEMENTS.dangerSigns) || '').split(',').map(s => s.trim()).filter(Boolean) : []
+                const age      = Number(getAttr(tei.attributes, attributes.age))    || null
+                const parity   = Number(getAttr(tei.attributes, attributes.parity)) || 0
+                const prevComp = getAttr(tei.attributes, attributes.previousComplications)
+                const latestGA = latest ? Number(getDV(latest.dataValues, dataElements.gestationalAge)) : null
+                const firstGA  = firstVisit ? Number(getDV(firstVisit.dataValues, dataElements.gestationalAge)) : null
+                const danger   = latest ? (getDV(latest.dataValues, dataElements.dangerSigns) || '').split(',').map(s => s.trim()).filter(Boolean) : []
 
                 const facilityOrgUid = enrollment.orgUnit ?? tei.orgUnit
                 const facilityName   =
@@ -110,20 +111,20 @@ export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODER
                         totalVisits:         visits.length,
                         currentWeek:         latestGA ?? 0,
                         firstVisitWeek:      firstGA,
-                        latestBpSystolic:    latest ? Number(getDV(latest.dataValues, DATA_ELEMENTS.bpSystolic))    : null,
-                        latestBpDiastolic:   latest ? Number(getDV(latest.dataValues, DATA_ELEMENTS.bpDiastolic))   : null,
-                        latestHaemoglobin:   latest ? Number(getDV(latest.dataValues, DATA_ELEMENTS.haemoglobin))   : null,
-                        latestMalariaResult: latest ? getDV(latest.dataValues, DATA_ELEMENTS.malariaTestResult)     : null,
+                        latestBpSystolic:    latest ? Number(getDV(latest.dataValues, dataElements.bpSystolic))    : null,
+                        latestBpDiastolic:   latest ? Number(getDV(latest.dataValues, dataElements.bpDiastolic))   : null,
+                        latestHaemoglobin:   latest ? Number(getDV(latest.dataValues, dataElements.haemoglobin))   : null,
+                        latestMalariaResult: latest ? getDV(latest.dataValues, dataElements.malariaTestResult)     : null,
                         dangerSigns:         danger,
                     }
                 )
 
                 return {
                     teiUid:              id,
-                    name:                getAttr(tei.attributes, ATTRIBUTES.fullName)    ?? 'Unknown',
+                    name:                getAttr(tei.attributes, attributes.fullName)    ?? 'Unknown',
                     age,
-                    village:             getAttr(tei.attributes, ATTRIBUTES.village)     ?? '—',
-                    phone:               getAttr(tei.attributes, ATTRIBUTES.phoneNumber) ?? '—',
+                    village:             getAttr(tei.attributes, attributes.village)     ?? '—',
+                    phone:               getAttr(tei.attributes, attributes.phoneNumber) ?? '—',
                     parity,
                     prevComp,
                     facility:            facilityName,
@@ -131,12 +132,12 @@ export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODER
                     gestationalAge:      latestGA,
                     totalVisits:         visits.length,
                     lastVisitDate:       latest?.occurredAt ?? null,
-                    latestBpSystolic:    latest ? Number(getDV(latest.dataValues, DATA_ELEMENTS.bpSystolic))    : null,
-                    latestBpDiastolic:   latest ? Number(getDV(latest.dataValues, DATA_ELEMENTS.bpDiastolic))   : null,
-                    latestHaemoglobin:   latest ? Number(getDV(latest.dataValues, DATA_ELEMENTS.haemoglobin))   : null,
-                    latestMalariaResult: latest ? getDV(latest.dataValues, DATA_ELEMENTS.malariaTestResult)     : null,
+                    latestBpSystolic:    latest ? Number(getDV(latest.dataValues, dataElements.bpSystolic))    : null,
+                    latestBpDiastolic:   latest ? Number(getDV(latest.dataValues, dataElements.bpDiastolic))   : null,
+                    latestHaemoglobin:   latest ? Number(getDV(latest.dataValues, dataElements.haemoglobin))   : null,
+                    latestMalariaResult: latest ? getDV(latest.dataValues, dataElements.malariaTestResult)     : null,
                     dangerSigns:         danger,
-                    nurseNotes:          latest ? getDV(latest.dataValues, DATA_ELEMENTS.nurseNotes) : null,
+                    nurseNotes:          latest ? getDV(latest.dataValues, dataElements.nurseNotes) : null,
                     assessment,
                 }
             })
