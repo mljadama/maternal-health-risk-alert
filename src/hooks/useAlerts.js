@@ -3,6 +3,7 @@ import { useDataQuery } from '@dhis2/app-runtime'
 import { useMemo } from 'react'
 import { assessRisk, RISK_LEVELS } from '../services/riskEngine.js'
 import { useDhis2Config } from './useDhis2Config.js'
+import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
 
 // NOTE: Pagination is implemented to avoid performance issues on large deployments.
 // pageSize: 500 balances between memory usage and API calls. Can be adjusted based on system capacity.
@@ -11,21 +12,35 @@ const getDV   = (list = [], uid) => list.find(d => d.dataElement === uid)?.value
 
 export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODERATE] } = {}) {
     const { config, loading: configLoading } = useDhis2Config()
+    const {
+        preferredOrgUnitId,
+        meLoading,
+        meError,
+    } = useTrackerOrgUnitScope()
     const { attributes, dataElements } = config
+
+    const trackerQueryParams = useMemo(() => {
+        if (preferredOrgUnitId) {
+            return { ou: preferredOrgUnitId, ouMode: 'DESCENDANTS' }
+        }
+        return { ouMode: 'ACCESSIBLE' }
+    }, [preferredOrgUnitId])
+
+    const shouldPauseQueries = configLoading || meLoading
 
     const PATIENTS_QUERY = useMemo(() => ({
         patients: {
             resource: 'tracker/trackedEntities',
             params: {
                 program:   config.program.id,
-                ouMode:    'ACCESSIBLE',
+                ...trackerQueryParams,
                 fields:    'trackedEntity,orgUnit,attributes,enrollments[enrollment,enrolledAt,orgUnit,orgUnitName,status]',
                 page:      1,
                 pageSize:  500,
                 order:     'enrolledAt:desc',
             },
         },
-    }), [config.program.id])
+    }), [config.program.id, trackerQueryParams])
 
     const EVENTS_QUERY = useMemo(() => ({
         events: {
@@ -33,14 +48,14 @@ export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODER
             params: {
                 program:      config.program.id,
                 programStage: config.programStage.id,
-                ouMode:       'ACCESSIBLE',
+                ...trackerQueryParams,
                 fields:       'event,trackedEntity,occurredAt,orgUnit,orgUnitName,dataValues',
                 page:         1,
                 pageSize:     500,
                 order:        'occurredAt:desc',
             },
         },
-    }), [config.program.id, config.programStage.id])
+    }), [config.program.id, config.programStage.id, trackerQueryParams])
 
     const ORG_UNITS_QUERY = useMemo(() => ({
         orgUnits: {
@@ -52,12 +67,12 @@ export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODER
         },
     }), [])
 
-    const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: configLoading })
-    const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: configLoading })
-    const { data: ouData, loading: ol } = useDataQuery(ORG_UNITS_QUERY, { lazy: configLoading })
+    const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: shouldPauseQueries })
+    const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: shouldPauseQueries })
+    const { data: ouData, loading: ol } = useDataQuery(ORG_UNITS_QUERY, { lazy: configLoading || meLoading })
 
-    const loading = pl || el || ol || configLoading
-    const error   = pe || ee
+    const loading = pl || el || ol || configLoading || meLoading
+    const error   = meError || pe || ee
 
     const ouMap = useMemo(() => {
         const map = {}

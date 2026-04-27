@@ -20,14 +20,24 @@ export default function PatientDetail() {
   const { teiUid } = useParams()
   const navigate = useNavigate()
 
-  const { patients, loading: pLoading } = usePatients()
-  const { visits, chartData, loading: vLoading } = useVisits(teiUid)
+  const { patients, loading: pLoading, error: pError } = usePatients()
+  const { visits, chartData, loading: vLoading, error: vError } = useVisits(teiUid)
 
   const loading = pLoading || vLoading
+  const error = pError || vError
   const patient = patients.find(p => p.teiUid === teiUid)
 
   if (loading) {
     return <div className={styles.page}><div className={styles.empty}>Loading patient...</div></div>
+  }
+
+  if (error) {
+    return (
+      <div className={styles.page}>
+        <button className={styles.btn} onClick={() => navigate('/patients')}>Back</button>
+        <div className={styles.alertBox}>Failed to load patient details: {error.message}</div>
+      </div>
+    )
   }
 
   if (!patient) {

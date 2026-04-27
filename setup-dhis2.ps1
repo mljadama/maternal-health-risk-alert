@@ -5,10 +5,9 @@
 
 $ErrorActionPreference = 'Stop'
 
-$SERVER = "http://localhost:8080"
-$USER     = "admin"
-$PASS     = "district"
-$ADMIN_UID = "xE7jOejl9FI"
+$SERVER    = "http://localhost:8080"
+$USER      = "admin"
+$PASS      = "district"
 
 $creds   = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("${USER}:${PASS}"))
 $headers = @{ Authorization = "Basic $creds"; "Content-Type" = "application/json" }
@@ -20,7 +19,6 @@ function PostJSON($path, $obj) {
         $r = Invoke-RestMethod -Uri "$base/$path" -Method Post -Headers $headers -Body $body -MaximumRedirection 5
         return $r.response.uid
     } catch {
-        $raw = $_.Exception.Response
         if ($_.Exception.Message -match '"uid":"([a-zA-Z0-9]{11})"') {
             return $matches[1]
         }
@@ -40,16 +38,252 @@ function Share($type, $uid) {
     PutJSON "$type/$uid/sharing" @{ object = @{ publicAccess = "rwrw----" } }
 }
 
+function GetUserIdByUsername($username) {
+    try {
+        $encoded = [System.Uri]::EscapeDataString("username:eq:$username")
+        $res = Invoke-RestMethod -Uri "$base/users?fields=id,username&filter=$encoded&paging=false" -Headers $headers -MaximumRedirection 5
+        $match = $res.users | Where-Object { "$( $_.username )" -eq "$username" } | Select-Object -First 1
+        if ($match -and $match.id) {
+            return $match.id
+        }
+    } catch {}
+    return $null
+}
+
+function AssignUserOrgUnitScopes($userId, $ouId) {
+    $paths = @(
+        "users/$userId/organisationUnits/$ouId",
+        "users/$userId/dataViewOrganisationUnits/$ouId",
+        "users/$userId/teiSearchOrganisationUnits/$ouId"
+    )
+
+    foreach ($path in $paths) {
+        try {
+            Invoke-RestMethod -Uri "$base/$path" -Method Post -Headers $headers -MaximumRedirection 5 | Out-Null
+        } catch {
+            # Ignore already-assigned conflicts, but surface other issues.
+            if ($_.Exception.Message -notmatch "\(409\)") {
+                Write-Host "  WARN $path : $($_.Exception.Message.Substring(0, [Math]::Min(160,$_.Exception.Message.Length)))" -ForegroundColor Yellow
+            }
+        }
+    }
+}
+
+function FindExistingId($resource, $field, $value) {
+    try {
+        $res = Invoke-RestMethod -Uri "$base/$resource?fields=id,$field&paging=false" -Headers $headers -MaximumRedirection 5
+        $items = $res | Select-Object -ExpandProperty $resource -ErrorAction SilentlyContinue
+        if (-not $items) { return $null }
+        $match = $items | Where-Object {
+            $_.PSObject.Properties[$field] -and ("$($_.$field)" -eq "$value")
+        } | Select-Object -First 1
+        return $match.id
+    } catch {
+        return $null
+    }
+}
+
+function GetOrCreateOU($code, $obj) {
+    try {
+        $res = Invoke-RestMethod -Uri "$base/organisationUnits?fields=id,code&paging=false" -Headers $headers -MaximumRedirection 5
+        $existing = $res.organisationUnits | Where-Object { "$($_.code)" -eq "$code" } | Select-Object -First 1
+        if ($existing -and $existing.id) {
+            Write-Host "  (existing) $code : $($existing.id)" -ForegroundColor DarkGray
+            return $existing.id
+        }
+    } catch {}
+
+    $createdId = PostJSON "organisationUnits" $obj
+    if ($createdId) {
+        return $createdId
+    }
+
+    # If create failed due conflict/race, try one more lookup.
+    try {
+        $res = Invoke-RestMethod -Uri "$base/organisationUnits?fields=id,code&paging=false" -Headers $headers -MaximumRedirection 5
+        $existing = $res.organisationUnits | Where-Object { "$($_.code)" -eq "$code" } | Select-Object -First 1
+        if ($existing -and $existing.id) {
+            Write-Host "  (existing after conflict) $code : $($existing.id)" -ForegroundColor DarkGray
+            return $existing.id
+        }
+    } catch {}
+
+    return $null
+}
+
+function GetOrCreateAttr($name, $obj) {
+    try {
+        $res = Invoke-RestMethod -Uri "$base/trackedEntityAttributes?fields=id,name,shortName&paging=false" -Headers $headers -MaximumRedirection 5
+        $existing = $res.trackedEntityAttributes | Where-Object {
+            ("$($_.name)" -eq "$name") -or ($obj.shortName -and ("$($_.shortName)" -eq "$($obj.shortName)"))
+        } | Select-Object -First 1
+        if ($existing -and $existing.id) {
+            Write-Host "  (existing) $name : $($existing.id)" -ForegroundColor DarkGray
+            return $existing.id
+        }
+    } catch {}
+
+    $createdId = PostJSON "trackedEntityAttributes" $obj
+    if ($createdId) {
+        return $createdId
+    }
+
+    try {
+        $res = Invoke-RestMethod -Uri "$base/trackedEntityAttributes?fields=id,name,shortName&paging=false" -Headers $headers -MaximumRedirection 5
+        $existing = $res.trackedEntityAttributes | Where-Object {
+            ("$($_.name)" -eq "$name") -or ($obj.shortName -and ("$($_.shortName)" -eq "$($obj.shortName)"))
+        } | Select-Object -First 1
+        if ($existing -and $existing.id) {
+            Write-Host "  (existing after conflict) $name : $($existing.id)" -ForegroundColor DarkGray
+            return $existing.id
+        }
+    } catch {}
+
+    return $null
+}
+
+function GetOrCreateDE($name, $obj) {
+    try {
+        $res = Invoke-RestMethod -Uri "$base/dataElements?fields=id,name,shortName&paging=false" -Headers $headers -MaximumRedirection 5
+        $existing = $res.dataElements | Where-Object {
+            ("$($_.name)" -eq "$name") -or ($obj.shortName -and ("$($_.shortName)" -eq "$($obj.shortName)"))
+        } | Select-Object -First 1
+        if ($existing -and $existing.id) {
+            Write-Host "  (existing) $name : $($existing.id)" -ForegroundColor DarkGray
+            return $existing.id
+        }
+    } catch {}
+
+    $createdId = PostJSON "dataElements" $obj
+    if ($createdId) {
+        return $createdId
+    }
+
+    try {
+        $res = Invoke-RestMethod -Uri "$base/dataElements?fields=id,name,shortName&paging=false" -Headers $headers -MaximumRedirection 5
+        $existing = $res.dataElements | Where-Object {
+            ("$($_.name)" -eq "$name") -or ($obj.shortName -and ("$($_.shortName)" -eq "$($obj.shortName)"))
+        } | Select-Object -First 1
+        if ($existing -and $existing.id) {
+            Write-Host "  (existing after conflict) $name : $($existing.id)" -ForegroundColor DarkGray
+            return $existing.id
+        }
+    } catch {}
+
+    return $null
+}
+
+function GetOrCreateTET($name, $obj) {
+    try {
+        $res = Invoke-RestMethod -Uri "$base/trackedEntityTypes?fields=id,name,shortName&paging=false" -Headers $headers -MaximumRedirection 5
+        $existing = $res.trackedEntityTypes | Where-Object {
+            ("$($_.name)" -eq "$name") -or ($obj.shortName -and ("$($_.shortName)" -eq "$($obj.shortName)"))
+        } | Select-Object -First 1
+        if ($existing -and $existing.id) {
+            Write-Host "  (existing) $name : $($existing.id)" -ForegroundColor DarkGray
+            return $existing.id
+        }
+    } catch {}
+
+    $createdId = PostJSON "trackedEntityTypes" $obj
+    if ($createdId) {
+        return $createdId
+    }
+
+    try {
+        $res = Invoke-RestMethod -Uri "$base/trackedEntityTypes?fields=id,name,shortName&paging=false" -Headers $headers -MaximumRedirection 5
+        $existing = $res.trackedEntityTypes | Where-Object {
+            ("$($_.name)" -eq "$name") -or ($obj.shortName -and ("$($_.shortName)" -eq "$($obj.shortName)"))
+        } | Select-Object -First 1
+        if ($existing -and $existing.id) {
+            Write-Host "  (existing after conflict) $name : $($existing.id)" -ForegroundColor DarkGray
+            return $existing.id
+        }
+    } catch {}
+
+    return $null
+}
+
+function GetOrCreateProgram($name, $obj) {
+    try {
+        $res = Invoke-RestMethod -Uri "$base/programs?fields=id,name,shortName&paging=false" -Headers $headers -MaximumRedirection 5
+        $existing = $res.programs | Where-Object {
+            ("$($_.name)" -eq "$name") -or ($obj.shortName -and ("$($_.shortName)" -eq "$($obj.shortName)"))
+        } | Select-Object -First 1
+        if ($existing -and $existing.id) {
+            Write-Host "  (existing) $name : $($existing.id)" -ForegroundColor DarkGray
+            return $existing.id
+        }
+    } catch {}
+
+    $createdId = PostJSON "programs" $obj
+    if ($createdId) {
+        return $createdId
+    }
+
+    # If create failed due conflict/race, try one more lookup.
+    try {
+        $res = Invoke-RestMethod -Uri "$base/programs?fields=id,name,shortName&paging=false" -Headers $headers -MaximumRedirection 5
+        $existing = $res.programs | Where-Object {
+            ("$($_.name)" -eq "$name") -or ($obj.shortName -and ("$($_.shortName)" -eq "$($obj.shortName)"))
+        } | Select-Object -First 1
+        if ($existing -and $existing.id) {
+            Write-Host "  (existing after conflict) $name : $($existing.id)" -ForegroundColor DarkGray
+            return $existing.id
+        }
+    } catch {}
+
+    return $null
+}
+
+function GetOrCreateStage($name, $obj) {
+    try {
+        $res = Invoke-RestMethod -Uri "$base/programStages?fields=id,name,program[id]&paging=false" -Headers $headers -MaximumRedirection 5
+        $existing = $res.programStages | Where-Object {
+            ("$($_.name)" -eq "$name") -and ($obj.program.id -eq $_.program.id)
+        } | Select-Object -First 1
+        if ($existing -and $existing.id) {
+            Write-Host "  (existing) $name : $($existing.id)" -ForegroundColor DarkGray
+            return $existing.id
+        }
+    } catch {}
+
+    $createdId = PostJSON "programStages" $obj
+    if ($createdId) {
+        return $createdId
+    }
+
+    # If create failed due conflict/race, try one more lookup.
+    try {
+        $res = Invoke-RestMethod -Uri "$base/programStages?fields=id,name,program[id]&paging=false" -Headers $headers -MaximumRedirection 5
+        $existing = $res.programStages | Where-Object {
+            ("$($_.name)" -eq "$name") -and ($obj.program.id -eq $_.program.id)
+        } | Select-Object -First 1
+        if ($existing -and $existing.id) {
+            Write-Host "  (existing after conflict) $name : $($existing.id)" -ForegroundColor DarkGray
+            return $existing.id
+        }
+    } catch {}
+
+    return $null
+}
+
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "  Maternal Health Risk Alert - DHIS2 Setup" -ForegroundColor Cyan
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 
+$ADMIN_UID = GetUserIdByUsername $USER
+if (-not $ADMIN_UID) {
+    throw "Could not resolve user id for username '$USER'."
+}
+Write-Host "Using user '$USER' UID: $ADMIN_UID" -ForegroundColor DarkGray
+
 # ── Step 1: Organisation Units ────────────────────────────────
 Write-Host "Step 1: Organisation units..." -ForegroundColor Yellow
 
-$gid = PostJSON "organisationUnits" @{
+$gid = GetOrCreateOU "GMB" @{
     name        = "The Gambia"
     shortName   = "Gambia"
     code        = "GMB"
@@ -59,7 +293,7 @@ if (-not $gid) { throw "Root organisation unit was not created successfully." }
 Write-Host "  The Gambia: $gid"
 
 function MakeHospital($name, $short, $code, $date) {
-    return PostJSON "organisationUnits" @{
+    return GetOrCreateOU $code @{
         name        = $name
         shortName   = $short
         code        = $code
@@ -84,18 +318,42 @@ Write-Host "  Bundung MCH:    $h6"
 
 $allOU = @($gid, $h1, $h2, $h3, $h4, $h5, $h6)
 foreach ($uid in $allOU) {
-    try {
-        Invoke-RestMethod -Uri "$base/users/$ADMIN_UID/organisationUnits/$uid" -Method Post -Headers $headers -MaximumRedirection 5 | Out-Null
-    } catch {}
+    AssignUserOrgUnitScopes $ADMIN_UID $uid
 }
-Write-Host "  Assigned to admin user" -ForegroundColor Green
+Write-Host "  Assigned to user org unit scopes" -ForegroundColor Green
 
-# ── Step 2: Tracked Entity Attributes ────────────────────────
+# Force assign all org unit scopes via PATCH
+$patchHeaders = @{
+    Authorization  = "Basic $creds"
+    "Content-Type" = "application/json-patch+json"
+}
+$ouList = $allOU | ForEach-Object { '{"id":"' + $_ + '"}' }
+$ouJson = '[' + ($ouList -join ',') + ']'
+$patchBody = '[
+    {"op":"add","path":"/organisationUnits","value":' + $ouJson + '},
+    {"op":"add","path":"/teiSearchOrganisationUnits","value":' + $ouJson + '},
+    {"op":"add","path":"/dataViewOrganisationUnits","value":' + $ouJson + '}
+]'
+try {
+    Invoke-RestMethod -Uri "$base/users/$ADMIN_UID" -Method Patch -Headers $patchHeaders -Body $patchBody -MaximumRedirection 5 | Out-Null
+    Write-Host "  Org unit scopes patched successfully" -ForegroundColor Green
+} catch {
+    Write-Host "  WARN: Could not patch org unit scopes" -ForegroundColor Yellow
+}
+
+# ── Step 2: Tracked Entity Type & Attributes ─────────────────
 Write-Host ""
-Write-Host "Step 2: Tracked entity attributes..." -ForegroundColor Yellow
+Write-Host "Step 2: Tracked entity type and attributes..." -ForegroundColor Yellow
+
+$trackedEntityTypeUid = GetOrCreateTET "GMB Pregnant Woman" @{
+    name      = "GMB Pregnant Woman"
+    shortName = "GMB Mother"
+}
+if (-not $trackedEntityTypeUid) { throw "Tracked entity type was not created successfully." }
+Write-Host "  Tracked Entity Type: $trackedEntityTypeUid"
 
 function MakeAttr($name, $short, $type) {
-    return PostJSON "trackedEntityAttributes" @{
+    return GetOrCreateAttr $name @{
         name            = $name
         shortName       = $short
         valueType       = $type
@@ -117,12 +375,16 @@ Write-Host "  Phone:               $a4"
 Write-Host "  Parity:              $a5"
 Write-Host "  Prev Complications:  $a6"
 
+if (-not ($a1 -and $a2 -and $a3 -and $a4 -and $a5 -and $a6)) {
+    throw "One or more tracked entity attributes were not created or resolved successfully."
+}
+
 # ── Step 3: Data Elements ─────────────────────────────────────
 Write-Host ""
 Write-Host "Step 3: Data elements..." -ForegroundColor Yellow
 
 function MakeDE($name, $short, $type) {
-    return PostJSON "dataElements" @{
+    return GetOrCreateDE $name @{
         name            = $name
         shortName       = $short
         valueType       = $type
@@ -157,15 +419,19 @@ Write-Host "  Nurse Notes:      $d10"
 Write-Host "  Danger Signs:     $d11"
 Write-Host "  Next Visit Date:  $d12"
 
+if (-not ($d1 -and $d2 -and $d3 -and $d4 -and $d5 -and $d6 -and $d7 -and $d8 -and $d9 -and $d10 -and $d11 -and $d12)) {
+    throw "One or more data elements were not created or resolved successfully."
+}
+
 # ── Step 4: Program ───────────────────────────────────────────
 Write-Host ""
 Write-Host "Step 4: Creating ANC program..." -ForegroundColor Yellow
 
-$progUid = PostJSON "programs" @{
+$progUid = GetOrCreateProgram "GMB Antenatal Care" @{
     name              = "GMB Antenatal Care"
     shortName         = "GMB ANC"
     programType       = "WITH_REGISTRATION"
-    trackedEntityType = @{ id = "nEenWmSyUEp" }
+    trackedEntityType = @{ id = $trackedEntityTypeUid }
     organisationUnits = @(
         @{ id = $gid }, @{ id = $h1 }, @{ id = $h2 },
         @{ id = $h3 },  @{ id = $h4 }, @{ id = $h5 }, @{ id = $h6 }
@@ -187,7 +453,7 @@ Share "programs" $progUid
 Write-Host ""
 Write-Host "Step 5: Creating ANC visit program stage..." -ForegroundColor Yellow
 
-$stageUid = PostJSON "programStages" @{
+$stageUid = GetOrCreateStage "GMB ANC Visit" @{
     name       = "GMB ANC Visit"
     program    = @{ id = $progUid }
     sortOrder  = 1
@@ -211,44 +477,51 @@ Write-Host "  Program Stage UID: $stageUid"
 if (-not $stageUid) { throw "Program stage was not created successfully." }
 Share "programStages" $stageUid
 
+# ── Step 6: Seed runtime config ───────────────────────────────
 Write-Host ""
 Write-Host "Step 6: Seeding runtime app configuration..." -ForegroundColor Yellow
+
 $config = @{
-    program = @{ id = $progUid; name = "GMB Antenatal Care" }
-    programStage = @{ id = $stageUid; name = "GMB ANC Visit" }
-    trackedEntityType = @{ id = "nEenWmSyUEp" }
+    program           = @{ id = $progUid;  name = "GMB Antenatal Care" }
+    programStage      = @{ id = $stageUid; name = "GMB ANC Visit" }
+    trackedEntityType = @{ id = $trackedEntityTypeUid }
     attributes = @{
-        fullName = $a1
-        age = $a2
-        village = $a3
-        phoneNumber = $a4
-        parity = $a5
+        fullName              = $a1
+        age                   = $a2
+        village               = $a3
+        phoneNumber           = $a4
+        parity                = $a5
         previousComplications = $a6
     }
     dataElements = @{
-        bpSystolic = $d1
-        bpDiastolic = $d2
-        haemoglobin = $d3
-        weight = $d4
-        gestationalAge = $d5
-        visitNumber = $d6
-        malariaTestResult = $d7
+        bpSystolic          = $d1
+        bpDiastolic         = $d2
+        haemoglobin         = $d3
+        weight              = $d4
+        gestationalAge      = $d5
+        visitNumber         = $d6
+        malariaTestResult   = $d7
         ironSupplementation = $d8
-        folicAcid = $d9
-        nurseNotes = $d10
-        dangerSigns = $d11
-        nextVisitDate = $d12
+        folicAcid           = $d9
+        nurseNotes          = $d10
+        dangerSigns         = $d11
+        nextVisitDate       = $d12
     }
     thresholds = @{
-        AGE_MIN = 18; AGE_MAX = 35; BP_SYSTOLIC_HIGH = 140; BP_DIASTOLIC_HIGH = 90; BP_SYSTOLIC_SEVERE = 160; BP_DIASTOLIC_SEVERE = 110; HB_NORMAL_MIN = 11.0; HB_MODERATE_ANAEMIA = 8.0; HB_SEVERE_ANAEMIA = 7.0; ANC_MINIMUM_VISITS = 4; FIRST_TRIMESTER_WEEKS = 13; GRAND_MULTIPARA_THRESHOLD = 4; SCORE_HIGH = 40; SCORE_MODERATE = 20
+        AGE_MIN = 18; AGE_MAX = 35
+        BP_SYSTOLIC_HIGH = 140; BP_DIASTOLIC_HIGH = 90
+        BP_SYSTOLIC_SEVERE = 160; BP_DIASTOLIC_SEVERE = 110
+        HB_NORMAL_MIN = 11.0; HB_MODERATE_ANAEMIA = 8.0; HB_SEVERE_ANAEMIA = 7.0
+        ANC_MINIMUM_VISITS = 4; FIRST_TRIMESTER_WEEKS = 13
+        GRAND_MULTIPARA_THRESHOLD = 4; SCORE_HIGH = 40; SCORE_MODERATE = 20
     }
-    malariaResults = @("Negative", "Positive (P. falciparum)", "Positive (P. vivax)", "Not done")
-    dangerSignOptions = @("Severe headache", "Blurred vision", "Severe abdominal pain", "Vaginal bleeding", "Convulsions", "Difficulty breathing", "Reduced fetal movement", "Swelling of face/hands")
+    malariaResults      = @("Negative", "Positive (P. falciparum)", "Positive (P. vivax)", "Not done")
+    dangerSignOptions   = @("Severe headache", "Blurred vision", "Severe abdominal pain", "Vaginal bleeding", "Convulsions", "Difficulty breathing", "Reduced fetal movement", "Swelling of face/hands")
     complicationOptions = @("None", "Pre-eclampsia", "Gestational diabetes", "Placenta previa", "Previous C-section", "Postpartum haemorrhage", "Anaemia", "Preterm birth", "Stillbirth", "Miscarriage")
     riskColors = @{
-        high = @{ main = '#dc2626'; light = '#fef2f2'; border = '#fecaca'; dark = '#991b1b' }
+        high     = @{ main = '#dc2626'; light = '#fef2f2'; border = '#fecaca'; dark = '#991b1b' }
         moderate = @{ main = '#d97706'; light = '#fffbeb'; border = '#fde68a'; dark = '#92400e' }
-        normal = @{ main = '#16a34a'; light = '#f0fdf4'; border = '#bbf7d0'; dark = '#14532d' }
+        normal   = @{ main = '#16a34a'; light = '#f0fdf4'; border = '#bbf7d0'; dark = '#14532d' }
     }
 } | ConvertTo-Json -Depth 8 -Compress
 
@@ -257,12 +530,11 @@ try {
 } catch {
     Invoke-RestMethod -Uri "$base/dataStore/maternal_health_risk_alert/config" -Method Post -Headers $headers -Body $config -MaximumRedirection 5 | Out-Null
 }
-
 Write-Host "  Configuration saved to dataStore" -ForegroundColor Green
 
-# ── Step 6: Write dhis2.js ────────────────────────────────────
+# ── Step 7: Write dhis2.js ────────────────────────────────────
 Write-Host ""
-Write-Host "Step 6: Writing src/config/dhis2.js..." -ForegroundColor Yellow
+Write-Host "Step 7: Writing src/config/dhis2.js..." -ForegroundColor Yellow
 
 $js = @"
 // src/config/dhis2.js
@@ -270,16 +542,16 @@ $js = @"
 
 export const PROGRAM       = { id: '$progUid',  name: 'GMB Antenatal Care' }
 export const PROGRAM_STAGE = { id: '$stageUid', name: 'GMB ANC Visit' }
-export const TRACKED_ENTITY_TYPE = 'nEenWmSyUEp'
+export const TRACKED_ENTITY_TYPE = '$trackedEntityTypeUid'
 
 export const ORG_UNITS = {
-    theGambia:        '$gid',
-    serrекundaGH:     '$h1',
-    brikаmaHC:        '$h2',
-    royalVictoria:    '$h3',
-    edwardFrancis:    '$h4',
-    farafenni:        '$h5',
-    bundungMCH:       '$h6',
+    theGambia:     '$gid',
+    serrekundaGH:  '$h1',
+    brikamaHC:     '$h2',
+    royalVictoria: '$h3',
+    edwardFrancis: '$h4',
+    farafenni:     '$h5',
+    bundungMCH:    '$h6',
 }
 
 export const ATTRIBUTES = {

@@ -103,6 +103,8 @@ These scripts create demo DHIS2 metadata that matches the app's data model:
 - Data Elements (vital signs and test results)
 - Organization Units (health facilities)
 
+The setup scripts also force-assign organisation unit scopes for the setup user (`organisationUnits`, `teiSearchOrganisationUnits`, and `dataViewOrganisationUnits`) using both endpoint assignment and JSON Patch, to avoid tracker access errors after fresh installs.
+
 After setup, open the app and use the Configuration page to map your instance-specific UIDs.
 
 **Option 2: Manual configuration (use existing metadata)**

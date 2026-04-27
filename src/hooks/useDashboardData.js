@@ -5,11 +5,12 @@ import { useDataQuery } from '@dhis2/app-runtime'
 import { useMemo } from 'react'
 import { assessRisk, RISK_LEVELS } from '../services/riskEngine.js'
 import { useDhis2Config } from './useDhis2Config.js'
+import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
 
 const getAttr = (list = [], uid) => list.find(a => a.attribute === uid)?.value ?? null
 const getDV   = (list = [], uid) => list.find(d => d.dataElement === uid)?.value ?? null
 
-function buildMonthlyTrend(events) {
+function buildMonthlyTrend(events, dataElements) {
     const buckets = {}
     const now = new Date()
     for (let i = 11; i >= 0; i--) {
@@ -54,19 +55,33 @@ function buildCompletion(patients, byTEI) {
 
 export function useDashboardData() {
     const { config, loading: configLoading } = useDhis2Config()
+    const {
+        preferredOrgUnitId,
+        meLoading,
+        meError,
+    } = useTrackerOrgUnitScope()
     const { attributes, dataElements } = config
+
+    const trackerQueryParams = useMemo(() => {
+        if (preferredOrgUnitId) {
+            return { ou: preferredOrgUnitId, ouMode: 'DESCENDANTS' }
+        }
+        return { ouMode: 'ACCESSIBLE' }
+    }, [preferredOrgUnitId])
+
+    const shouldPauseQueries = configLoading || meLoading
 
     const PATIENTS_QUERY = useMemo(() => ({
         patients: {
             resource: 'tracker/trackedEntities',
             params: {
                 program: config.program.id,
-                ouMode:  'ACCESSIBLE',
+                ...trackerQueryParams,
                 fields:  'trackedEntity,attributes,enrollments[enrollment,enrolledAt,orgUnit]',
                 paging:  false,
             },
         },
-    }), [config.program.id])
+    }), [config.program.id, trackerQueryParams])
 
     const EVENTS_QUERY = useMemo(() => ({
         events: {
@@ -74,18 +89,18 @@ export function useDashboardData() {
             params: {
                 program:      config.program.id,
                 programStage: config.programStage.id,
-                ouMode:       'ACCESSIBLE',
+                ...trackerQueryParams,
                 fields:       'event,trackedEntity,occurredAt,dataValues',
                 paging:       false,
             },
         },
-    }), [config.program.id, config.programStage.id])
+    }), [config.program.id, config.programStage.id, trackerQueryParams])
 
-    const { data: pData, loading: pl, error: pe } = useDataQuery(PATIENTS_QUERY, { lazy: configLoading })
-    const { data: eData, loading: el, error: ee } = useDataQuery(EVENTS_QUERY, { lazy: configLoading })
+    const { data: pData, loading: pl, error: pe } = useDataQuery(PATIENTS_QUERY, { lazy: shouldPauseQueries })
+    const { data: eData, loading: el, error: ee } = useDataQuery(EVENTS_QUERY, { lazy: shouldPauseQueries })
 
-    const loading = pl || el || configLoading
-    const error   = pe || ee
+    const loading = pl || el || configLoading || meLoading
+    const error   = meError || pe || ee
 
     const stats = useMemo(() => {
         if (!pData || !eData) return null
@@ -160,7 +175,7 @@ export function useDashboardData() {
                 { name: 'Moderate',  value: moderate, color: '#d97706' },
                 { name: 'Normal',    value: normal,   color: '#16a34a' },
             ],
-            monthlyTrend:     buildMonthlyTrend(events),
+            monthlyTrend:     buildMonthlyTrend(events, dataElements),
             completionStages: buildCompletion(patients, byTEI),
             alertPatients:    patients
                 .filter(p => p.assessment.level !== RISK_LEVELS.NORMAL)

@@ -5,13 +5,28 @@
 import { useDataQuery } from '@dhis2/app-runtime'
 import { useMemo } from 'react'
 import { useDhis2Config } from './useDhis2Config.js'
+import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
 
 const getDV = (list = [], uid) =>
     list.find(d => d.dataElement === uid)?.value ?? null
 
 export function useVisits(teiUid) {
     const { config, loading: configLoading } = useDhis2Config()
+    const {
+        preferredOrgUnitId,
+        meLoading,
+        meError,
+    } = useTrackerOrgUnitScope()
     const { dataElements } = config
+
+    const trackerQueryParams = useMemo(() => {
+        if (preferredOrgUnitId) {
+            return { ou: preferredOrgUnitId, ouMode: 'DESCENDANTS' }
+        }
+        return { ouMode: 'ACCESSIBLE' }
+    }, [preferredOrgUnitId])
+
+    const shouldPauseQueries = !teiUid || configLoading || meLoading
 
     const VISITS_QUERY = useMemo(() => ({
         visits: {
@@ -20,18 +35,20 @@ export function useVisits(teiUid) {
                 program:       config.program.id,
                 programStage:  config.programStage.id,
                 trackedEntity: teiUid,
-                ouMode:        'ACCESSIBLE',
+                ...trackerQueryParams,
                 fields:        'event,trackedEntity,occurredAt,orgUnit,orgUnitName,status,dataValues',
                 order:         'occurredAt:asc',
                 paging:        false,
             }),
         },
-    }), [config.program.id, config.programStage.id, teiUid])
+    }), [config.program.id, config.programStage.id, teiUid, trackerQueryParams])
 
     const { data, loading, error, refetch } = useDataQuery(VISITS_QUERY, {
         variables: { teiUid },
-        lazy:      !teiUid || configLoading,
+        lazy:      shouldPauseQueries,
     })
+
+    const resolvedError = meError || error
 
     const visits = useMemo(() => {
         if (!data) return []
@@ -64,5 +81,11 @@ export function useVisits(teiUid) {
         ga:     v.gestationalAge,
     })), [visits])
 
-    return { visits, chartData, loading: loading || configLoading, error, refetch }
+    return {
+        visits,
+        chartData,
+        loading: loading || configLoading || meLoading,
+        error: resolvedError,
+        refetch,
+    }
 }

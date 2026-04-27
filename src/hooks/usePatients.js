@@ -3,6 +3,7 @@ import { useDataQuery } from '@dhis2/app-runtime'
 import { useMemo } from 'react'
 import { assessRisk } from '../services/riskEngine.js'
 import { useDhis2Config } from './useDhis2Config.js'
+import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
 
 const getAttr = (list = [], uid) =>
     list.find(a => a.attribute === uid)?.value ?? null
@@ -12,31 +13,45 @@ const getDV = (list = [], uid) =>
 
 export function usePatients() {
     const { config, loading: configLoading } = useDhis2Config()
+    const {
+        preferredOrgUnitId,
+        meLoading,
+        meError,
+    } = useTrackerOrgUnitScope()
     const { attributes, dataElements } = config
+
+    const trackerQueryParams = useMemo(() => {
+        if (preferredOrgUnitId) {
+            return { ou: preferredOrgUnitId, ouMode: 'DESCENDANTS' }
+        }
+        return { ouMode: 'ACCESSIBLE' }
+    }, [preferredOrgUnitId])
+
+    const shouldPauseQueries = configLoading || meLoading
 
     const PATIENTS_QUERY = useMemo(() => ({
         patients: {
             resource: 'tracker/trackedEntities',
             params: {
                 program: config.program.id,
-                ouMode:  'ACCESSIBLE',
+                ...trackerQueryParams,
                 fields:  'trackedEntity,orgUnit,attributes,enrollments[enrollment,enrolledAt,orgUnit,orgUnitName,status]',
                 paging:  false,
             },
         },
-    }), [config.program.id])
+    }), [config.program.id, trackerQueryParams])
 
     const EVENTS_QUERY = useMemo(() => ({
         events: {
             resource: 'tracker/events',
             params: {
                 program:  config.program.id,
-                ouMode:   'ACCESSIBLE',
+                ...trackerQueryParams,
                 fields:   'event,trackedEntity,occurredAt,orgUnit,orgUnitName,dataValues',
                 paging:   false,
             },
         },
-    }), [config.program.id])
+    }), [config.program.id, trackerQueryParams])
 
     const ORG_UNITS_QUERY = useMemo(() => ({
         orgUnits: {
@@ -48,12 +63,12 @@ export function usePatients() {
         },
     }), [])
 
-    const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: configLoading })
-    const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: configLoading })
-    const { data: ouData, loading: ol } = useDataQuery(ORG_UNITS_QUERY, { lazy: configLoading })
+    const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: shouldPauseQueries })
+    const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: shouldPauseQueries })
+    const { data: ouData, loading: ol } = useDataQuery(ORG_UNITS_QUERY, { lazy: configLoading || meLoading })
 
-    const loading = pl || el || ol || configLoading
-    const error   = pe || ee
+    const loading = pl || el || ol || configLoading || meLoading
+    const error   = meError || pe || ee
 
     const ouMap = useMemo(() => {
         const map = {}

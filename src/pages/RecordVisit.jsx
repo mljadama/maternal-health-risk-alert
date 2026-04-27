@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useDataMutation, useDataQuery, useDataEngine } from '@dhis2/app-runtime'
 import { assessRisk, getRiskLabel } from '../services/riskEngine.js'
 import { useDhis2Config } from '../hooks/useDhis2Config.js'
+import { useTrackerOrgUnitScope } from '../hooks/useTrackerOrgUnitScope.js'
 import styles from './FormPage.module.css'
 
 const today = () => new Date().toISOString().split('T')[0]
@@ -39,7 +40,15 @@ async function pollJob(engine, jobId, maxAttempts = 10) {
       })
       const report = result?.job
       if (report?.status === 'OK' || report?.status === 'WARNING') return { success: true }
-      if (report?.status === 'ERROR') throw new Error('Event save failed on DHIS2 server')
+      if (report?.status === 'ERROR') {
+        const detail =
+          report?.description ||
+          report?.message ||
+          report?.bundleReport?.typeReportMap?.EVENT?.objectReports?.[0]?.message ||
+          report?.bundleReport?.typeReportMap?.TRACKED_ENTITY?.objectReports?.[0]?.message ||
+          'Event save failed on DHIS2 server'
+        throw new Error(detail)
+      }
     } catch (err) {
       if (err.message.includes('failed')) throw err
     }
@@ -63,8 +72,20 @@ export default function RecordVisit() {
   const navigate = useNavigate()
   const engine = useDataEngine()
   const { config, loading: configLoading } = useDhis2Config()
+  const {
+    preferredOrgUnitId,
+    meLoading,
+    meError,
+  } = useTrackerOrgUnitScope()
   const malariaResults = config.malariaResults
   const dangerSignOptions = config.dangerSignOptions
+
+  const trackerQueryParams = useMemo(() => {
+    if (preferredOrgUnitId) {
+      return { ou: preferredOrgUnitId, ouMode: 'DESCENDANTS' }
+    }
+    return { ouMode: 'ACCESSIBLE' }
+  }, [preferredOrgUnitId])
 
   const ENROLLMENT_QUERY = useMemo(() => ({
     enrollment: {
@@ -72,12 +93,12 @@ export default function RecordVisit() {
       params: ({ teiUid }) => ({
         trackedEntity: teiUid,
         program: config.program.id,
-        ouMode: 'ACCESSIBLE',
+        ...trackerQueryParams,
         fields: 'enrollment,orgUnit,orgUnitName',
         paging: false,
       }),
     },
-  }), [config.program.id])
+  }), [config.program.id, trackerQueryParams])
 
   const [vals, setVals] = useState(INIT)
   const [errs, setErrs] = useState({})
@@ -86,11 +107,15 @@ export default function RecordVisit() {
   const [formMessage, setFormMessage] = useState('')
   const [loadingText, setLoadingText] = useState(false)
 
-  const { data: enrData } = useDataQuery(ENROLLMENT_QUERY, { variables: { teiUid }, lazy: !teiUid || configLoading })
+  const { data: enrData, error: enrollmentError } = useDataQuery(ENROLLMENT_QUERY, {
+    variables: { teiUid },
+    lazy: !teiUid || configLoading || meLoading,
+  })
   const [mutate, { loading }] = useDataMutation(TRACKER_MUTATION)
 
   const enrollment = enrData?.enrollment?.enrollments?.[0] ?? null
   const orgUnit = enrollment?.orgUnit ?? null
+  const scopeError = meError || enrollmentError
 
   function ch(f, v) {
     setVals(p => ({ ...p, [f]: v }))
@@ -151,8 +176,8 @@ export default function RecordVisit() {
             { dataElement: config.dataElements.gestationalAge, value: String(vals.gestationalAge) },
             { dataElement: config.dataElements.visitNumber, value: String(vals.visitNumber) },
             { dataElement: config.dataElements.malariaTestResult, value: vals.malariaTestResult },
-            { dataElement: config.dataElements.ironSupplementation, value: String(vals.ironSupplementation) },
-            { dataElement: config.dataElements.folicAcid, value: String(vals.folicAcid) },
+            { dataElement: config.dataElements.ironSupplementation, value: vals.ironSupplementation ? 'true' : '' },
+            { dataElement: config.dataElements.folicAcid, value: vals.folicAcid ? 'true' : '' },
             { dataElement: config.dataElements.nurseNotes, value: vals.nurseNotes || '' },
             { dataElement: config.dataElements.dangerSigns, value: dangerValue },
             { dataElement: config.dataElements.nextVisitDate, value: vals.nextVisitDate || '' },
@@ -194,6 +219,8 @@ export default function RecordVisit() {
           <p className={styles.subtitle}>Patient {teiUid?.slice(0, 8)}... - Visit {vals.visitNumber}</p>
           {liveRisk && <span className={styles.badge}>Live risk: {getRiskLabel(liveRisk.level)}</span>}
         </div>
+
+        {scopeError && <div className={styles.error}>Cannot load enrollment: {scopeError.message}</div>}
 
         <div className={styles.card}>
           <h3 className={styles.sectionTitle}>Visit details</h3>

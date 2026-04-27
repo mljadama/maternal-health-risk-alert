@@ -1,5 +1,15 @@
 # DHIS2 App Hub Review - Changes Implemented
 
+## Final Submission Update (April 2026)
+
+- Added forced org-unit scope assignment in setup scripts at the end of Step 1 using JSON Patch (`organisationUnits`, `teiSearchOrganisationUnits`, `dataViewOrganisationUnits`) after per-OU assignment calls.
+- Applied the same scope-assignment hardening in both setup scripts:
+    - `setup-dhis2.ps1`
+    - `setup-dhis2.sh`
+- Updated `setup-dhis2.sh` to resolve the setup user UID dynamically by username instead of relying on a hardcoded user UID.
+- Fixed non-ASCII key corruption in generated config templates so script-generated `src/config/dhis2.js` remains valid JavaScript.
+- Removed empty unused placeholder files from `src/` and `.d2/shell/`.
+
 ## Overview
 
 This document summarizes all changes made to address the DHIS2 App Hub review feedback for the Maternal Health Risk Alert application.
