@@ -1,8 +1,9 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDataQuery } from '@dhis2/app-runtime'
 import { useRegisterPatient } from '../hooks/useRegisterPatient.js'
 import { useDhis2Config } from '../hooks/useDhis2Config.js'
+import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
 import styles from './FormPage.module.css'
 
 const STEPS = ['Personal details', 'Pregnancy info', 'Review & submit']
@@ -48,6 +49,14 @@ function validate(values, step) {
 export default function RegisterPatient() {
   const navigate = useNavigate()
   const { config } = useDhis2Config()
+  const configValidation = useMemo(() => validateAppSettings(config), [config])
+  const configErrorMessage = useMemo(() => {
+    if (configValidation.isValid) return ''
+    return buildConfigValidationMessage(
+      configValidation,
+      'Registration is unavailable because configuration is incomplete.'
+    )
+  }, [configValidation])
   const [step, setStep] = useState(0)
   const [vals, setVals] = useState(INIT)
   const [errs, setErrs] = useState({})
@@ -65,6 +74,11 @@ export default function RegisterPatient() {
   }
 
   function handleNext() {
+    if (!configValidation.isValid) {
+      setFormError(configErrorMessage)
+      return
+    }
+
     const e = validate(vals, step)
     if (Object.keys(e).length) {
       setErrs(e)
@@ -75,6 +89,11 @@ export default function RegisterPatient() {
   }
 
   async function handleSubmit() {
+    if (!configValidation.isValid) {
+      setFormError(configErrorMessage)
+      return
+    }
+
     const e = validate(vals, 'all')
     if (Object.keys(e).length) {
       setErrs(e)
@@ -119,6 +138,10 @@ export default function RegisterPatient() {
         </div>
 
         <div className={styles.card}>
+          {!configValidation.isValid && (
+            <div className={styles.alert}>{configErrorMessage}</div>
+          )}
+
           {!saved && step === 0 && (
             <div className={styles.grid}>
               <h3 className={styles.sectionTitle}>Personal details</h3>
@@ -248,9 +271,9 @@ export default function RegisterPatient() {
               <div className={styles.hint}>Step {step + 1} of {STEPS.length}</div>
               <div className={styles.actionsRight}>
                 {step < STEPS.length - 1 ? (
-                  <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleNext}>Continue</button>
+                  <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleNext} disabled={!configValidation.isValid}>Continue</button>
                 ) : (
-                  <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleSubmit} disabled={submitting}>
+                  <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleSubmit} disabled={submitting || !configValidation.isValid}>
                     {submitting ? 'Registering...' : 'Register patient'}
                   </button>
                 )}

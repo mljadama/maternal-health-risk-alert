@@ -4,6 +4,7 @@ import { useDataMutation, useDataQuery, useDataEngine } from '@dhis2/app-runtime
 import { assessRisk, getRiskLabel } from '../services/riskEngine.js'
 import { useDhis2Config } from '../hooks/useDhis2Config.js'
 import { useTrackerOrgUnitScope } from '../hooks/useTrackerOrgUnitScope.js'
+import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
 import styles from './FormPage.module.css'
 
 const today = () => new Date().toISOString().split('T')[0]
@@ -72,6 +73,7 @@ export default function RecordVisit() {
   const navigate = useNavigate()
   const engine = useDataEngine()
   const { config, loading: configLoading } = useDhis2Config()
+  const configValidation = useMemo(() => validateAppSettings(config), [config])
   const {
     preferredOrgUnitId,
     meLoading,
@@ -86,6 +88,16 @@ export default function RecordVisit() {
     }
     return { ouMode: 'ACCESSIBLE' }
   }, [preferredOrgUnitId])
+
+  const configError = useMemo(() => {
+    if (configValidation.isValid) return null
+    return new Error(
+      buildConfigValidationMessage(
+        configValidation,
+        'Cannot record a visit because configuration is incomplete.'
+      )
+    )
+  }, [configValidation])
 
   const ENROLLMENT_QUERY = useMemo(() => ({
     enrollment: {
@@ -109,13 +121,13 @@ export default function RecordVisit() {
 
   const { data: enrData, error: enrollmentError } = useDataQuery(ENROLLMENT_QUERY, {
     variables: { teiUid },
-    lazy: !teiUid || configLoading || meLoading,
+    lazy: !teiUid || configLoading || meLoading || Boolean(configError),
   })
   const [mutate, { loading }] = useDataMutation(TRACKER_MUTATION)
 
   const enrollment = enrData?.enrollment?.enrollments?.[0] ?? null
   const orgUnit = enrollment?.orgUnit ?? null
-  const scopeError = meError || enrollmentError
+  const scopeError = configError || meError || enrollmentError
 
   function ch(f, v) {
     setVals(p => ({ ...p, [f]: v }))
@@ -152,6 +164,10 @@ export default function RecordVisit() {
     }
     if (!orgUnit) {
       setFormMessage('Could not find enrollment org unit. Please try again.')
+      return
+    }
+    if (configError) {
+      setFormMessage(configError.message)
       return
     }
 

@@ -14,6 +14,7 @@ import {
 
 import { AppProvider } from './context/AppContext.jsx'
 import Layout          from './components/common/Layout.jsx'
+import ConfigurationGuard from './components/common/ConfigurationGuard.jsx'
 import Dashboard       from './pages/Dashboard.jsx'
 import PatientList     from './pages/PatientList.jsx'
 import PatientDetail   from './pages/PatientDetail.jsx'
@@ -39,67 +40,89 @@ const dhis2Config = {
 // Uses DHIS2 UI library for consistent styling with other DHIS2 apps.
 // See UI_MIGRATION.md for details on component migration.
 // ─────────────────────────────────────────────────────────────
+function AppRoutes() {
+    return (
+        <Routes>
+            {/* Default — redirect root to dashboard */}
+            <Route
+                path="/"
+                element={<Navigate to="/dashboard" replace />}
+            />
+
+            {/* Dashboard — KPI cards, charts, alert summary (no guard needed) */}
+            <Route
+                path="/dashboard"
+                element={<Dashboard />}
+            />
+
+            {/* Configuration — metadata mapping (no guard needed) */}
+            <Route
+                path="/configuration"
+                element={<Configuration />}
+            />
+
+            {/* Protected routes — guarded behind configuration check */}
+            <Route
+                path="/patients"
+                element={
+                    <ConfigurationGuard>
+                        <PatientList />
+                    </ConfigurationGuard>
+                }
+            />
+
+            <Route
+                path="/patients/:teiUid"
+                element={
+                    <ConfigurationGuard>
+                        <PatientDetail />
+                    </ConfigurationGuard>
+                }
+            />
+
+            <Route
+                path="/register"
+                element={
+                    <ConfigurationGuard>
+                        <RegisterPatient />
+                    </ConfigurationGuard>
+                }
+            />
+
+            <Route
+                path="/visit/:teiUid"
+                element={
+                    <ConfigurationGuard>
+                        <RecordVisit />
+                    </ConfigurationGuard>
+                }
+            />
+
+            <Route
+                path="/alerts"
+                element={
+                    <ConfigurationGuard>
+                        <RiskAlerts />
+                    </ConfigurationGuard>
+                }
+            />
+
+            {/* Catch-all — redirect unknown paths to dashboard */}
+            <Route
+                path="*"
+                element={<Navigate to="/dashboard" replace />}
+            />
+        </Routes>
+    )
+}
+
 export default function App() {
     return (
         <DataProvider config={dhis2Config}>
             <HashRouter>
                 <AppProvider>
                     <Layout>
-                        <Routes>
-                            {/* Default — redirect root to dashboard */}
-                            <Route
-                                path="/"
-                                element={<Navigate to="/dashboard" replace />}
-                            />
-
-                            {/* Dashboard — KPI cards, charts, alert summary */}
-                            <Route
-                                path="/dashboard"
-                                element={<Dashboard />}
-                            />
-
-                            {/* Patient list — search, filter, sort */}
-                            <Route
-                                path="/patients"
-                                element={<PatientList />}
-                            />
-
-                            {/* Patient detail — visit history, trends, risk */}
-                            <Route
-                                path="/patients/:teiUid"
-                                element={<PatientDetail />}
-                            />
-
-                            {/* Register — 3-step enrollment form */}
-                            <Route
-                                path="/register"
-                                element={<RegisterPatient />}
-                            />
-
-                            {/* Record visit — ANC visit data entry form */}
-                            <Route
-                                path="/visit/:teiUid"
-                                element={<RecordVisit />}
-                            />
-
-                            {/* Risk alerts — high and moderate risk patients */}
-                            <Route
-                                path="/alerts"
-                                element={<RiskAlerts />}
-                            />
-
-                            {/* Configuration — metadata mapping and dataStore persistence */}
-                            <Route
-                                path="/configuration"
-                                element={<Configuration />}
-                            />
-
-                            {/* Catch-all — redirect unknown paths to dashboard */}
-                            <Route
-                                path="*"
-                                element={<Navigate to="/dashboard" replace />}
-                            />
-                        </Routes>
+                        <AppRoutes />
                     </Layout>
                 </AppProvider>
             </HashRouter>

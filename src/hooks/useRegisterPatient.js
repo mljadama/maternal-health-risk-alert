@@ -7,6 +7,10 @@
 
 import { useDataMutation, useDataEngine } from '@dhis2/app-runtime'
 import { useDhis2Config } from './useDhis2Config.js'
+import {
+    validateAppSettings,
+    buildConfigValidationMessage,
+} from '../config/appSettings.js'
 
 const TRACKER_MUTATION = {
     resource: 'tracker',
@@ -71,14 +75,39 @@ async function pollJob(engine, jobId, maxAttempts = 10) {
     throw new Error('Patient registration job timed out. Please check if the registration was successful in DHIS2.')
 }
 
+function normalizeRegistrationError(error) {
+    const message = String(error?.message || '')
+    if (message.includes('(400)') || /\b400\b/.test(message)) {
+        return new Error(
+            'DHIS2 returned 400 while registering the patient. Open Configuration and verify Program, Program stage, Tracked entity type, attribute UIDs, and data element UIDs.'
+        )
+    }
+    return error instanceof Error ? error : new Error('Registration failed due to an unexpected error.')
+}
+
 export function useRegisterPatient() {
     const [mutate, { loading, error }] = useDataMutation(TRACKER_MUTATION)
     const engine = useDataEngine()
     const { config, loading: configLoading } = useDhis2Config()
 
     async function register(formValues, orgUnit) {
-        const payload = buildPayload(formValues, orgUnit, config)
-        const result  = await mutate({ payload })
+        const configValidation = validateAppSettings(config)
+        if (!configValidation.isValid) {
+            throw new Error(
+                buildConfigValidationMessage(
+                    configValidation,
+                    'Registration is blocked because configuration is incomplete.'
+                )
+            )
+        }
+
+        let result
+        try {
+            const payload = buildPayload(formValues, orgUnit, config)
+            result = await mutate({ payload })
+        } catch (error) {
+            throw normalizeRegistrationError(error)
+        }
 
         // v42 returns a job ID — poll for the result
         const jobId = result?.response?.id

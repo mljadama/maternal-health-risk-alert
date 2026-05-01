@@ -13,7 +13,9 @@
 // ─────────────────────────────────────────────────────────────
 
 import { useDataMutation } from '@dhis2/app-runtime'
+import { useMemo } from 'react'
 import { useDhis2Config } from './useDhis2Config.js'
+import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
 
 // ── v42 Tracker mutation ──────────────────────────────────────
 const TRACKER_EVENT_MUTATION = {
@@ -110,11 +112,25 @@ export function buildEventPayload(formValues, trackedEntity, enrollment, orgUnit
 export function useRecordVisit() {
     const [submitEvent, { loading, error, data }] = useDataMutation(TRACKER_EVENT_MUTATION)
     const { config, loading: configLoading } = useDhis2Config()
+    const configValidation = useMemo(() => validateAppSettings(config), [config])
+    const configError = useMemo(() => {
+        if (configValidation.isValid) return null
+        return new Error(
+            buildConfigValidationMessage(
+                configValidation,
+                'Cannot record a visit because configuration is incomplete.'
+            )
+        )
+    }, [configValidation])
 
     const lastEventUid =
         data?.bundleReport?.typeReportMap?.EVENT?.objectReports?.[0]?.uid ?? null
 
     async function recordVisit(formValues, teiUid, enrollmentUid, orgUnit) {
+        if (configError) {
+            throw configError
+        }
+
         const payload = buildEventPayload(formValues, teiUid, enrollmentUid, orgUnit, config)
         const result  = await submitEvent({ payload })
 
@@ -131,5 +147,5 @@ export function useRecordVisit() {
         return { eventUid }
     }
 
-    return { recordVisit, loading: loading || configLoading, error, lastEventUid }
+    return { recordVisit, loading: loading || configLoading, error: configError || error, lastEventUid }
 }

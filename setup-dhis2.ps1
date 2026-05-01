@@ -532,9 +532,53 @@ try {
 }
 Write-Host "  Configuration saved to dataStore" -ForegroundColor Green
 
-# ── Step 7: Write dhis2.js ────────────────────────────────────
+# ── Step 7: Write datastore-config.json ───────────────────────
 Write-Host ""
-Write-Host "Step 7: Writing src/config/dhis2.js..." -ForegroundColor Yellow
+Write-Host "Step 7: Writing datastore-config.json..." -ForegroundColor Yellow
+
+$config | Out-File -FilePath "datastore-config.json" -Encoding utf8 -NoNewline
+Write-Host "  datastore-config.json updated" -ForegroundColor Green
+
+# ── Step 8: Write defaultUidConfig.js ─────────────────────────
+Write-Host ""
+Write-Host "Step 8: Writing src/config/defaultUidConfig.js..." -ForegroundColor Yellow
+
+$uidDefaults = @"
+export const DEFAULT_UID_CONFIG = {
+    program: { id: '$progUid', name: 'GMB Antenatal Care' },
+    programStage: { id: '$stageUid', name: 'GMB ANC Visit' },
+    trackedEntityType: { id: '$trackedEntityTypeUid' },
+    attributes: {
+        fullName: '$a1',
+        age: '$a2',
+        village: '$a3',
+        phoneNumber: '$a4',
+        parity: '$a5',
+        previousComplications: '$a6',
+    },
+    dataElements: {
+        bpSystolic: '$d1',
+        bpDiastolic: '$d2',
+        haemoglobin: '$d3',
+        weight: '$d4',
+        gestationalAge: '$d5',
+        visitNumber: '$d6',
+        malariaTestResult: '$d7',
+        ironSupplementation: '$d8',
+        folicAcid: '$d9',
+        nurseNotes: '$d10',
+        dangerSigns: '$d11',
+        nextVisitDate: '$d12',
+    },
+}
+"@
+
+$uidDefaults | Out-File -FilePath "src\config\defaultUidConfig.js" -Encoding utf8 -NoNewline
+Write-Host "  src/config/defaultUidConfig.js updated" -ForegroundColor Green
+
+# ── Step 9: Write dhis2.js ────────────────────────────────────
+Write-Host ""
+Write-Host "Step 9: Writing src/config/dhis2.js..." -ForegroundColor Yellow
 
 $js = @"
 // src/config/dhis2.js

@@ -17,6 +17,8 @@ import { useAppContext } from '../context/AppContext.jsx'
 import {
   DEFAULT_APP_SETTINGS,
   normalizeAppSettings,
+  validateAppSettings,
+  buildConfigValidationMessage,
 } from '../config/appSettings.js'
 import styles from './Configuration.module.css'
 
@@ -107,13 +109,21 @@ export default function Configuration() {
     setDraft(normalizeAppSettings(appSettings))
   }, [appSettings])
 
+  const validation = useMemo(() => validateAppSettings(draft), [draft])
+  const validationItems = useMemo(() => {
+    const missing = validation.missingFields.map(label => `${label} (missing)`)
+    const invalid = validation.invalidFields.map(label => `${label} (invalid UID format)`)
+    return [...missing, ...invalid]
+  }, [validation])
+
   const summaryRows = useMemo(() => [
+    { label: 'Configuration status', value: validation.isValid ? 'Valid' : 'Needs attention' },
     { label: 'Program', value: draft.program?.name || 'Not set' },
     { label: 'Program stage', value: draft.programStage?.name || 'Not set' },
     { label: 'Tracked entity type', value: draft.trackedEntityType?.id || 'Not set' },
     { label: 'Attribute mappings', value: Object.keys(draft.attributes || {}).length },
     { label: 'Data element mappings', value: Object.keys(draft.dataElements || {}).length },
-  ], [draft])
+  ], [draft, validation.isValid])
 
   function handleChange(path) {
     return (event) => {
@@ -123,6 +133,14 @@ export default function Configuration() {
   }
 
   async function handleSave() {
+    if (!validation.isValid) {
+      setMessage({
+        type: 'error',
+        text: buildConfigValidationMessage(validation, 'Cannot save configuration.'),
+      })
+      return
+    }
+
     setSaving(true)
     setMessage(null)
     try {
@@ -141,7 +159,7 @@ export default function Configuration() {
     try {
       const defaults = await resetAppSettings()
       setDraft(defaults)
-      setMessage({ type: 'success', text: 'Configuration reset to defaults.' })
+      setMessage({ type: 'success', text: 'Configuration cleared.' })
     } catch (error) {
       setMessage({ type: 'error', text: error?.message || 'Failed to reset configuration.' })
     } finally {
@@ -168,8 +186,19 @@ export default function Configuration() {
       />
 
       <NoticeBox info title="How this works">
-        Save the Program, Program Stage, Tracked Entity Type, Attributes, and Data Element UIDs for the DHIS2 instance you are deploying to. The app will use these values at runtime instead of hardcoded Gambia-specific metadata.
+        Save the Program, Program Stage, Tracked Entity Type, Attributes, and Data Element UIDs for the DHIS2 instance you are deploying to. The app will use only the values stored in dataStore at runtime.
       </NoticeBox>
+
+      {!validation.isValid && (
+        <NoticeBox warning title="Configuration needs attention">
+          Complete all required UID mappings before using Patients or Register Patient.
+          {validationItems.length > 0 && (
+            <Box marginTop="8px">
+              {validationItems.join(', ')}
+            </Box>
+          )}
+        </NoticeBox>
+      )}
 
       {message && (
         <div className={message.type === 'error' ? styles.alertError : styles.alertSuccess}>
@@ -217,7 +246,7 @@ export default function Configuration() {
 
       <div className={styles.actions}>
         <Button secondary onClick={handleReset} disabled={saving}>
-          Restore defaults
+          Clear configuration
         </Button>
         <Button primary onClick={handleSave} disabled={saving}>
           {saving ? 'Saving...' : 'Save configuration'}

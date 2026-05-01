@@ -6,6 +6,7 @@ import { useMemo } from 'react'
 import { assessRisk, RISK_LEVELS } from '../services/riskEngine.js'
 import { useDhis2Config } from './useDhis2Config.js'
 import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
+import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
 
 const getAttr = (list = [], uid) => list.find(a => a.attribute === uid)?.value ?? null
 const getDV   = (list = [], uid) => list.find(d => d.dataElement === uid)?.value ?? null
@@ -55,12 +56,23 @@ function buildCompletion(patients, byTEI) {
 
 export function useDashboardData() {
     const { config, loading: configLoading } = useDhis2Config()
+    const configValidation = useMemo(() => validateAppSettings(config), [config])
     const {
         preferredOrgUnitId,
         meLoading,
         meError,
     } = useTrackerOrgUnitScope()
     const { attributes, dataElements } = config
+
+    const configError = useMemo(() => {
+        if (configValidation.isValid) return null
+        return new Error(
+            buildConfigValidationMessage(
+                configValidation,
+                'Cannot load the dashboard because configuration is incomplete.'
+            )
+        )
+    }, [configValidation])
 
     const trackerQueryParams = useMemo(() => {
         if (preferredOrgUnitId) {
@@ -69,7 +81,7 @@ export function useDashboardData() {
         return { ouMode: 'ACCESSIBLE' }
     }, [preferredOrgUnitId])
 
-    const shouldPauseQueries = configLoading || meLoading
+    const shouldPauseQueries = configLoading || meLoading || Boolean(configError)
 
     const PATIENTS_QUERY = useMemo(() => ({
         patients: {
@@ -100,7 +112,7 @@ export function useDashboardData() {
     const { data: eData, loading: el, error: ee } = useDataQuery(EVENTS_QUERY, { lazy: shouldPauseQueries })
 
     const loading = pl || el || configLoading || meLoading
-    const error   = meError || pe || ee
+    const error   = configError || meError || pe || ee
 
     const stats = useMemo(() => {
         if (!pData || !eData) return null

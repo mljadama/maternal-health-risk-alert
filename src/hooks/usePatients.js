@@ -1,9 +1,13 @@
 // src/hooks/usePatients.js
 import { useDataQuery } from '@dhis2/app-runtime'
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { assessRisk } from '../services/riskEngine.js'
 import { useDhis2Config } from './useDhis2Config.js'
 import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
+import {
+    validateAppSettings,
+    buildConfigValidationMessage,
+} from '../config/appSettings.js'
 
 const getAttr = (list = [], uid) =>
     list.find(a => a.attribute === uid)?.value ?? null
@@ -11,8 +15,33 @@ const getAttr = (list = [], uid) =>
 const getDV = (list = [], uid) =>
     list.find(d => d.dataElement === uid)?.value ?? null
 
+function normalizeQueryError(error) {
+    if (!error) return null
+    const message = String(error?.message || '')
+
+    if (message.includes('(400)') || /\b400\b/.test(message)) {
+        return new Error(
+            'DHIS2 returned 400 while loading patients. Check Configuration and verify that Program, Program stage, Tracked entity type, and all mapped UIDs are valid for this instance.'
+        )
+    }
+
+    return error
+}
+
 export function usePatients() {
     const { config, loading: configLoading } = useDhis2Config()
+    const configValidation = useMemo(() => validateAppSettings(config), [config])
+    const configError = useMemo(() => {
+        if (configValidation.isValid) {
+            return null
+        }
+        return new Error(
+            buildConfigValidationMessage(
+                configValidation,
+                'Cannot load patients because configuration is incomplete.'
+            )
+        )
+    }, [configValidation])
     const {
         preferredOrgUnitId,
         meLoading,
@@ -27,7 +56,7 @@ export function usePatients() {
         return { ouMode: 'ACCESSIBLE' }
     }, [preferredOrgUnitId])
 
-    const shouldPauseQueries = configLoading || meLoading
+    const shouldPauseQueries = configLoading || meLoading || Boolean(configError)
 
     const PATIENTS_QUERY = useMemo(() => ({
         patients: {
@@ -63,12 +92,22 @@ export function usePatients() {
         },
     }), [])
 
-    const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: shouldPauseQueries })
-    const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: shouldPauseQueries })
-    const { data: ouData, loading: ol } = useDataQuery(ORG_UNITS_QUERY, { lazy: configLoading || meLoading })
+    const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: true })
+    const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: true })
+    const { data: ouData, loading: ol, refetch: ro } = useDataQuery(ORG_UNITS_QUERY, { lazy: true })
+
+    // Trigger all three queries once config and me are both ready
+    useEffect(() => {
+        if (!shouldPauseQueries) {
+            rp()
+            re()
+            ro()
+        }
+    }, [shouldPauseQueries])
 
     const loading = pl || el || ol || configLoading || meLoading
-    const error   = meError || pe || ee
+    const queryError = normalizeQueryError(meError || pe || ee)
+    const error = configError || queryError
 
     const ouMap = useMemo(() => {
         const map = {}
@@ -84,8 +123,9 @@ export function usePatients() {
         const rawTeis = pData.patients?.trackedEntities ?? []
         const events = eData.events?.events ?? []
 
-        // Some DHIS2 responses can include repeated tracked entities across enrollments/pages.
-        // Keep the last seen entry per UID so each patient renders once.
+        // Some DHIS2 responses can include repeated tracked entities across
+        // enrollments/pages. Keep the last seen entry per UID so each
+        // patient renders once.
         const teis = Array.from(
             rawTeis.reduce((acc, tei) => {
                 if (tei?.trackedEntity) {
@@ -117,7 +157,10 @@ export function usePatients() {
             const prevComp = getAttr(tei.attributes, attributes.previousComplications)
             const latestGA = latest ? Number(getDV(latest.dataValues, dataElements.gestationalAge)) : null
             const firstGA  = firstVisit ? Number(getDV(firstVisit.dataValues, dataElements.gestationalAge)) : null
-            const danger   = latest ? (getDV(latest.dataValues, dataElements.dangerSigns) || '').split(',').map(s => s.trim()).filter(Boolean) : []
+            const danger   = latest
+                ? (getDV(latest.dataValues, dataElements.dangerSigns) || '')
+                    .split(',').map(s => s.trim()).filter(Boolean)
+                : []
 
             // Resolve facility name from multiple sources
             const facilityOrgUid = enrollment.orgUnit ?? tei.orgUnit
@@ -160,12 +203,12 @@ export function usePatients() {
                 rawVisits:      visits,
             }
         })
-    }, [pData, eData, ouMap])
+    }, [pData, eData, ouMap, attributes, dataElements])
 
     return {
         patients,
         loading,
         error,
-        refetch: () => { rp(); re() },
+        refetch: () => { rp(); re(); ro() },
     }
 }

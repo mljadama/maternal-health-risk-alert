@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { assessRisk, RISK_LEVELS } from '../services/riskEngine.js'
 import { useDhis2Config } from './useDhis2Config.js'
 import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
+import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
 
 // NOTE: Pagination is implemented to avoid performance issues on large deployments.
 // pageSize: 500 balances between memory usage and API calls. Can be adjusted based on system capacity.
@@ -12,12 +13,23 @@ const getDV   = (list = [], uid) => list.find(d => d.dataElement === uid)?.value
 
 export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODERATE] } = {}) {
     const { config, loading: configLoading } = useDhis2Config()
+    const configValidation = useMemo(() => validateAppSettings(config), [config])
     const {
         preferredOrgUnitId,
         meLoading,
         meError,
     } = useTrackerOrgUnitScope()
     const { attributes, dataElements } = config
+
+    const configError = useMemo(() => {
+        if (configValidation.isValid) return null
+        return new Error(
+            buildConfigValidationMessage(
+                configValidation,
+                'Cannot load alerts because configuration is incomplete.'
+            )
+        )
+    }, [configValidation])
 
     const trackerQueryParams = useMemo(() => {
         if (preferredOrgUnitId) {
@@ -26,7 +38,7 @@ export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODER
         return { ouMode: 'ACCESSIBLE' }
     }, [preferredOrgUnitId])
 
-    const shouldPauseQueries = configLoading || meLoading
+    const shouldPauseQueries = configLoading || meLoading || Boolean(configError)
 
     const PATIENTS_QUERY = useMemo(() => ({
         patients: {
@@ -72,7 +84,7 @@ export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODER
     const { data: ouData, loading: ol } = useDataQuery(ORG_UNITS_QUERY, { lazy: configLoading || meLoading })
 
     const loading = pl || el || ol || configLoading || meLoading
-    const error   = meError || pe || ee
+    const error   = configError || meError || pe || ee
 
     const ouMap = useMemo(() => {
         const map = {}

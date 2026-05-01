@@ -1,65 +1,69 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # setup-dhis2.sh
 # Run this any time the demo server resets.
 # Place this file in the project root next to package.json
 # Then run: chmod +x setup-dhis2.sh && ./setup-dhis2.sh
 
-set -u
+set -euo pipefail
 
 SERVER="http://localhost:8080"
 USER="admin"
 PASS="district"
-
 BASE="$SERVER/api"
 
-get_creds() {
-    echo -n "$USER:$PASS" | base64
+auth_header() {
+    printf 'Authorization: Basic %s' "$(printf '%s' "$USER:$PASS" | base64 | tr -d '\r\n')"
 }
 
-api_get() {
+extract_first_uid() {
+    local text="$1"
+    printf '%s' "$text" | grep -o '"uid":"[A-Za-z0-9]\{11\}"' | head -1 | cut -d'"' -f4 || true
+}
+
+extract_first_id() {
+    local text="$1"
+    printf '%s' "$text" | grep -o '"id":"[A-Za-z0-9]\{11\}"' | head -1 | cut -d'"' -f4 || true
+}
+
+http_post_json() {
     local path="$1"
-    local creds
-    creds=$(get_creds)
-    curl -s -X GET "$BASE/$path" -H "Authorization: Basic $creds"
+    local body="$2"
+    curl -sS -X POST "$BASE/$path" \
+        -H "$(auth_header)" \
+        -H "Content-Type: application/json" \
+        -d "$body"
+}
+
+http_put_json() {
+    local path="$1"
+    local body="$2"
+    curl -sS -X PUT "$BASE/$path" \
+        -H "$(auth_header)" \
+        -H "Content-Type: application/json" \
+        -d "$body"
 }
 
 post_json() {
     local path="$1"
-    local obj="$2"
-    local creds
-    creds=$(get_creds)
+    local body="$2"
+    local response uid
 
-    local response
-    response=$(curl -s -X POST \
-        "$BASE/$path" \
-        -H "Authorization: Basic $creds" \
-        -H "Content-Type: application/json" \
-        -d "$obj")
-
-    local uid
-    uid=$(echo "$response" | grep -o '"uid":"[A-Za-z0-9]\{11\}"' | head -1 | cut -d'"' -f4)
+    response=$(http_post_json "$path" "$body")
+    uid=$(extract_first_uid "$response")
     if [ -n "$uid" ]; then
-        echo "$uid"
-        return 0
+        printf '%s' "$uid"
+        return
     fi
 
-    local err
-    err=$(echo "$response" | tr '\n' ' ' | sed 's/  */ /g' | cut -c1-220)
-    echo "  ERROR $path : $err" >&2
-    return 1
+    echo "  ERROR $path : $(printf '%s' "$response" | tr '\n' ' ' | sed 's/  */ /g' | cut -c1-220)" >&2
+    printf ''
 }
 
 put_json() {
     local path="$1"
-    local obj="$2"
-    local creds
-    creds=$(get_creds)
-    curl -s -X PUT \
-        "$BASE/$path" \
-        -H "Authorization: Basic $creds" \
-        -H "Content-Type: application/json" \
-        -d "$obj" > /dev/null 2>&1
+    local body="$2"
+    http_put_json "$path" "$body" > /dev/null 2>&1 || true
 }
 
 share() {
@@ -77,269 +81,221 @@ require_uid() {
     fi
 }
 
-get_first_id() {
+find_existing_id() {
     local resource="$1"
-    local fields="$2"
-    local filter="$3"
-    local creds
-    creds=$(get_creds)
-
+    local field="$2"
+    local value="$3"
     local response
-    response=$(curl -sG \
-        "$BASE/$resource" \
-        -H "Authorization: Basic $creds" \
-        --data-urlencode "fields=$fields" \
-        --data-urlencode "paging=false" \
-        --data-urlencode "filter=$filter")
 
-    echo "$response" | grep -o '"id":"[A-Za-z0-9]\{11\}"' | head -1 | cut -d'"' -f4
+    response=$(curl -sS -G "$BASE/$resource" \
+        -H "$(auth_header)" \
+        --data-urlencode "fields=id,$field" \
+        --data-urlencode "filter=$field:eq:$value" \
+        --data-urlencode "paging=false")
+
+    extract_first_id "$response"
+}
+
+find_program_stage_id() {
+    local name="$1"
+    local program_id="$2"
+    local response id
+
+    response=$(curl -sS -G "$BASE/programStages" \
+        -H "$(auth_header)" \
+        --data-urlencode "fields=id,name" \
+        --data-urlencode "filter=name:eq:$name" \
+        --data-urlencode "filter=program.id:eq:$program_id" \
+        --data-urlencode "paging=false")
+    id=$(extract_first_id "$response")
+
+    if [ -n "$id" ]; then
+        printf '%s' "$id"
+        return
+    fi
+
+    find_existing_id "programStages" "name" "$name"
+}
+
+get_or_create_ou() {
+    local code="$1"
+    local payload="$2"
+    local existing created
+
+    existing=$(find_existing_id "organisationUnits" "code" "$code")
+    if [ -n "$existing" ]; then
+        echo "  (existing) $code : $existing" >&2
+        printf '%s' "$existing"
+        return
+    fi
+
+    created=$(post_json "organisationUnits" "$payload")
+    if [ -n "$created" ]; then
+        printf '%s' "$created"
+        return
+    fi
+
+    existing=$(find_existing_id "organisationUnits" "code" "$code")
+    if [ -n "$existing" ]; then
+        echo "  (existing after conflict) $code : $existing" >&2
+        printf '%s' "$existing"
+        return
+    fi
+
+    printf ''
+}
+
+get_or_create_by_name_shortname() {
+    local resource="$1"
+    local name="$2"
+    local short_name="$3"
+    local payload="$4"
+    local existing created
+
+    existing=$(find_existing_id "$resource" "name" "$name")
+    if [ -n "$existing" ]; then
+        echo "  (existing) $name : $existing" >&2
+        printf '%s' "$existing"
+        return
+    fi
+
+    if [ -n "$short_name" ]; then
+        existing=$(find_existing_id "$resource" "shortName" "$short_name")
+        if [ -n "$existing" ]; then
+            echo "  (existing shortName) $short_name : $existing" >&2
+            printf '%s' "$existing"
+            return
+        fi
+    fi
+
+    created=$(post_json "$resource" "$payload")
+    if [ -n "$created" ]; then
+        printf '%s' "$created"
+        return
+    fi
+
+    existing=$(find_existing_id "$resource" "name" "$name")
+    if [ -n "$existing" ]; then
+        echo "  (existing after conflict) $name : $existing" >&2
+        printf '%s' "$existing"
+        return
+    fi
+
+    if [ -n "$short_name" ]; then
+        existing=$(find_existing_id "$resource" "shortName" "$short_name")
+        if [ -n "$existing" ]; then
+            echo "  (existing after conflict shortName) $short_name : $existing" >&2
+            printf '%s' "$existing"
+            return
+        fi
+    fi
+
+    printf ''
+}
+
+get_or_create_program_stage() {
+    local name="$1"
+    local program_id="$2"
+    local payload="$3"
+    local existing created
+
+    existing=$(find_program_stage_id "$name" "$program_id")
+    if [ -n "$existing" ]; then
+        echo "  (existing) $name : $existing" >&2
+        printf '%s' "$existing"
+        return
+    fi
+
+    created=$(post_json "programStages" "$payload")
+    if [ -n "$created" ]; then
+        printf '%s' "$created"
+        return
+    fi
+
+    existing=$(find_program_stage_id "$name" "$program_id")
+    if [ -n "$existing" ]; then
+        echo "  (existing after conflict) $name : $existing" >&2
+        printf '%s' "$existing"
+        return
+    fi
+
+    printf ''
 }
 
 get_user_id_by_username() {
-    get_first_id "users" "id,username" "username:eq:$1"
+    local username="$1"
+    local response
+
+    response=$(curl -sS -G "$BASE/users" \
+        -H "$(auth_header)" \
+        --data-urlencode "fields=id,username" \
+        --data-urlencode "filter=username:eq:$username" \
+        --data-urlencode "paging=false")
+
+    extract_first_id "$response"
 }
 
 assign_user_org_unit_scopes() {
     local user_id="$1"
     local ou_id="$2"
-    local creds
-    creds=$(get_creds)
 
-    curl -s -X POST "$BASE/users/$user_id/organisationUnits/$ou_id" -H "Authorization: Basic $creds" -H "Content-Type: application/json" > /dev/null 2>&1
-    curl -s -X POST "$BASE/users/$user_id/dataViewOrganisationUnits/$ou_id" -H "Authorization: Basic $creds" -H "Content-Type: application/json" > /dev/null 2>&1
-    curl -s -X POST "$BASE/users/$user_id/teiSearchOrganisationUnits/$ou_id" -H "Authorization: Basic $creds" -H "Content-Type: application/json" > /dev/null 2>&1
+    curl -sS -X POST "$BASE/users/$user_id/organisationUnits/$ou_id" -H "$(auth_header)" >/dev/null 2>&1 || true
+    curl -sS -X POST "$BASE/users/$user_id/dataViewOrganisationUnits/$ou_id" -H "$(auth_header)" >/dev/null 2>&1 || true
+    curl -sS -X POST "$BASE/users/$user_id/teiSearchOrganisationUnits/$ou_id" -H "$(auth_header)" >/dev/null 2>&1 || true
 }
 
-get_or_create_ou() {
-    local code="$1"
-    local obj="$2"
+force_patch_org_unit_scopes() {
+    local user_id="$1"
+    shift
+    local ou_json='['
+    local uid
 
-    local existing
-    existing=$(get_first_id "organisationUnits" "id,code" "code:eq:$code")
-    if [ -n "$existing" ]; then
-        echo "  (existing) $code : $existing" >&2
-        echo "$existing"
-        return 0
+    for uid in "$@"; do
+        ou_json+="{\"id\":\"$uid\"},"
+    done
+    ou_json="${ou_json%,}]"
+
+    local patch_body
+    patch_body=$(cat <<EOF
+[
+  {"op":"add","path":"/organisationUnits","value":$ou_json},
+  {"op":"add","path":"/teiSearchOrganisationUnits","value":$ou_json},
+  {"op":"add","path":"/dataViewOrganisationUnits","value":$ou_json}
+]
+EOF
+)
+
+    if curl -sS -X PATCH "$BASE/users/$user_id" \
+        -H "$(auth_header)" \
+        -H "Content-Type: application/json-patch+json" \
+        -d "$patch_body" > /dev/null 2>&1; then
+        echo "  Org unit scopes patched successfully"
+    else
+        echo "  WARN: Could not patch org unit scopes"
     fi
-
-    local created
-    created=$(post_json "organisationUnits" "$obj" 2>/dev/null || true)
-    if [ -n "$created" ]; then
-        echo "$created"
-        return 0
-    fi
-
-    existing=$(get_first_id "organisationUnits" "id,code" "code:eq:$code")
-    if [ -n "$existing" ]; then
-        echo "  (existing after conflict) $code : $existing" >&2
-        echo "$existing"
-        return 0
-    fi
-
-    echo ""
-}
-
-get_or_create_attr() {
-    local name="$1"
-    local short="$2"
-    local obj="$3"
-
-    local existing
-    existing=$(get_first_id "trackedEntityAttributes" "id,name,shortName" "name:eq:$name")
-    if [ -z "$existing" ] && [ -n "$short" ]; then
-        existing=$(get_first_id "trackedEntityAttributes" "id,name,shortName" "shortName:eq:$short")
-    fi
-    if [ -n "$existing" ]; then
-        echo "  (existing) $name : $existing" >&2
-        echo "$existing"
-        return 0
-    fi
-
-    local created
-    created=$(post_json "trackedEntityAttributes" "$obj" 2>/dev/null || true)
-    if [ -n "$created" ]; then
-        echo "$created"
-        return 0
-    fi
-
-    existing=$(get_first_id "trackedEntityAttributes" "id,name,shortName" "name:eq:$name")
-    if [ -z "$existing" ] && [ -n "$short" ]; then
-        existing=$(get_first_id "trackedEntityAttributes" "id,name,shortName" "shortName:eq:$short")
-    fi
-    if [ -n "$existing" ]; then
-        echo "  (existing after conflict) $name : $existing" >&2
-        echo "$existing"
-        return 0
-    fi
-
-    echo ""
-}
-
-get_or_create_de() {
-    local name="$1"
-    local short="$2"
-    local obj="$3"
-
-    local existing
-    existing=$(get_first_id "dataElements" "id,name,shortName" "name:eq:$name")
-    if [ -z "$existing" ] && [ -n "$short" ]; then
-        existing=$(get_first_id "dataElements" "id,name,shortName" "shortName:eq:$short")
-    fi
-    if [ -n "$existing" ]; then
-        echo "  (existing) $name : $existing" >&2
-        echo "$existing"
-        return 0
-    fi
-
-    local created
-    created=$(post_json "dataElements" "$obj" 2>/dev/null || true)
-    if [ -n "$created" ]; then
-        echo "$created"
-        return 0
-    fi
-
-    existing=$(get_first_id "dataElements" "id,name,shortName" "name:eq:$name")
-    if [ -z "$existing" ] && [ -n "$short" ]; then
-        existing=$(get_first_id "dataElements" "id,name,shortName" "shortName:eq:$short")
-    fi
-    if [ -n "$existing" ]; then
-        echo "  (existing after conflict) $name : $existing" >&2
-        echo "$existing"
-        return 0
-    fi
-
-    echo ""
-}
-
-get_or_create_tet() {
-    local name="$1"
-    local short="$2"
-    local obj="$3"
-
-    local existing
-    existing=$(get_first_id "trackedEntityTypes" "id,name,shortName" "name:eq:$name")
-    if [ -z "$existing" ] && [ -n "$short" ]; then
-        existing=$(get_first_id "trackedEntityTypes" "id,name,shortName" "shortName:eq:$short")
-    fi
-    if [ -n "$existing" ]; then
-        echo "  (existing) $name : $existing" >&2
-        echo "$existing"
-        return 0
-    fi
-
-    local created
-    created=$(post_json "trackedEntityTypes" "$obj" 2>/dev/null || true)
-    if [ -n "$created" ]; then
-        echo "$created"
-        return 0
-    fi
-
-    existing=$(get_first_id "trackedEntityTypes" "id,name,shortName" "name:eq:$name")
-    if [ -z "$existing" ] && [ -n "$short" ]; then
-        existing=$(get_first_id "trackedEntityTypes" "id,name,shortName" "shortName:eq:$short")
-    fi
-    if [ -n "$existing" ]; then
-        echo "  (existing after conflict) $name : $existing" >&2
-        echo "$existing"
-        return 0
-    fi
-
-    echo ""
-}
-
-get_or_create_program() {
-    local name="$1"
-    local short="$2"
-    local obj="$3"
-
-    local existing
-    existing=$(get_first_id "programs" "id,name,shortName" "name:eq:$name")
-    if [ -z "$existing" ] && [ -n "$short" ]; then
-        existing=$(get_first_id "programs" "id,name,shortName" "shortName:eq:$short")
-    fi
-    if [ -n "$existing" ]; then
-        echo "  (existing) $name : $existing" >&2
-        echo "$existing"
-        return 0
-    fi
-
-    local created
-    created=$(post_json "programs" "$obj" 2>/dev/null || true)
-    if [ -n "$created" ]; then
-        echo "$created"
-        return 0
-    fi
-
-    existing=$(get_first_id "programs" "id,name,shortName" "name:eq:$name")
-    if [ -z "$existing" ] && [ -n "$short" ]; then
-        existing=$(get_first_id "programs" "id,name,shortName" "shortName:eq:$short")
-    fi
-    if [ -n "$existing" ]; then
-        echo "  (existing after conflict) $name : $existing" >&2
-        echo "$existing"
-        return 0
-    fi
-
-    echo ""
-}
-
-get_or_create_stage() {
-    local name="$1"
-    local obj="$2"
-
-    local existing
-    existing=$(get_first_id "programStages" "id,name" "name:eq:$name")
-    if [ -n "$existing" ]; then
-        echo "  (existing) $name : $existing" >&2
-        echo "$existing"
-        return 0
-    fi
-
-    local created
-    created=$(post_json "programStages" "$obj" 2>/dev/null || true)
-    if [ -n "$created" ]; then
-        echo "$created"
-        return 0
-    fi
-
-    existing=$(get_first_id "programStages" "id,name" "name:eq:$name")
-    if [ -n "$existing" ]; then
-        echo "  (existing after conflict) $name : $existing" >&2
-        echo "$existing"
-        return 0
-    fi
-
-    echo ""
 }
 
 upsert_datastore_config() {
-    local namespace_key="$1"
-    local payload="$2"
-    local creds
-    creds=$(get_creds)
+    local body="$1"
+    local status
 
-    local code
-    code=$(curl -s -o /dev/null -w "%{http_code}" -X PUT \
-        "$BASE/dataStore/$namespace_key" \
-        -H "Authorization: Basic $creds" \
+    status=$(curl -sS -o /dev/null -w "%{http_code}" -X PUT \
+        "$BASE/dataStore/maternal_health_risk_alert/config" \
+        -H "$(auth_header)" \
         -H "Content-Type: application/json" \
-        -d "$payload")
+        -d "$body")
 
-    if [ "$code" = "200" ] || [ "$code" = "201" ] || [ "$code" = "204" ]; then
-        return 0
+    if [ "$status" != "200" ] && [ "$status" != "201" ] && [ "$status" != "204" ]; then
+        status=$(curl -sS -o /dev/null -w "%{http_code}" -X POST \
+            "$BASE/dataStore/maternal_health_risk_alert/config" \
+            -H "$(auth_header)" \
+            -H "Content-Type: application/json" \
+            -d "$body")
+        if [ "$status" != "200" ] && [ "$status" != "201" ] && [ "$status" != "204" ]; then
+            echo "ERROR: failed to save dataStore config (HTTP $status)" >&2
+            exit 1
+        fi
     fi
-
-    code=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-        "$BASE/dataStore/$namespace_key" \
-        -H "Authorization: Basic $creds" \
-        -H "Content-Type: application/json" \
-        -d "$payload")
-
-    if [ "$code" = "200" ] || [ "$code" = "201" ] || [ "$code" = "204" ]; then
-        return 0
-    fi
-
-    return 1
 }
 
 echo ""
@@ -349,10 +305,10 @@ echo "============================================"
 echo ""
 
 ADMIN_UID=$(get_user_id_by_username "$USER")
-require_uid "user id for username '$USER'" "$ADMIN_UID"
+require_uid "setup user uid" "$ADMIN_UID"
 echo "Using user '$USER' UID: $ADMIN_UID"
 
-# Step 1: Organisation Units
+# Step 1: Organisation units
 echo "Step 1: Organisation units..."
 
 gid=$(get_or_create_ou "GMB" '{"name":"The Gambia","shortName":"Gambia","code":"GMB","openingDate":"1965-02-18"}')
@@ -374,12 +330,9 @@ h4=$(make_hospital "Edward Francis Small Teaching Hospital" "EFSTH" "GMB004" "19
 h5=$(make_hospital "Farafenni Hospital" "Farafenni Hosp" "GMB005" "1966-01-01")
 h6=$(make_hospital "Bundung MCH Hospital" "Bundung MCH" "GMB006" "1989-01-01")
 
-require_uid "Serrekunda GH" "$h1"
-require_uid "Brikama HC" "$h2"
-require_uid "RVTH" "$h3"
-require_uid "EFSTH" "$h4"
-require_uid "Farafenni" "$h5"
-require_uid "Bundung MCH" "$h6"
+for ou in "$h1" "$h2" "$h3" "$h4" "$h5" "$h6"; do
+    require_uid "facility organisation unit" "$ou"
+done
 
 echo "  Serrekunda GH:  $h1"
 echo "  Brikama HC:     $h2"
@@ -389,34 +342,18 @@ echo "  Farafenni:      $h5"
 echo "  Bundung MCH:    $h6"
 
 all_ou=("$gid" "$h1" "$h2" "$h3" "$h4" "$h5" "$h6")
-for uid in "${all_ou[@]}"; do
-    assign_user_org_unit_scopes "$ADMIN_UID" "$uid"
+for ou in "${all_ou[@]}"; do
+    assign_user_org_unit_scopes "$ADMIN_UID" "$ou"
 done
+
 echo "  Assigned to user org unit scopes"
+force_patch_org_unit_scopes "$ADMIN_UID" "${all_ou[@]}"
 
-# Force assign all org unit scopes via PATCH
-creds=$(get_creds)
-ou_json='[{"id":"'"$gid"'"},{"id":"'"$h1"'"},{"id":"'"$h2"'"},{"id":"'"$h3"'"},{"id":"'"$h4"'"},{"id":"'"$h5"'"},{"id":"'"$h6"'"}]'
-patch_body='[
-  {"op":"add","path":"/organisationUnits","value":'"$ou_json"'},
-  {"op":"add","path":"/teiSearchOrganisationUnits","value":'"$ou_json"'},
-  {"op":"add","path":"/dataViewOrganisationUnits","value":'"$ou_json"'}
-]'
-if curl -s -X PATCH \
-    "$BASE/users/$ADMIN_UID" \
-    -H "Authorization: Basic $creds" \
-    -H "Content-Type: application/json-patch+json" \
-    -d "$patch_body" > /dev/null 2>&1; then
-    echo "  Org unit scopes patched successfully"
-else
-    echo "  WARN: Could not patch org unit scopes"
-fi
-
-# Step 2: Tracked Entity Type and Attributes
+# Step 2: Tracked entity type and attributes
 echo ""
 echo "Step 2: Tracked entity type and attributes..."
 
-tracked_entity_type_uid=$(get_or_create_tet "GMB Pregnant Woman" "GMB Mother" '{"name":"GMB Pregnant Woman","shortName":"GMB Mother"}')
+tracked_entity_type_uid=$(get_or_create_by_name_shortname "trackedEntityTypes" "GMB Pregnant Woman" "GMB Mother" '{"name":"GMB Pregnant Woman","shortName":"GMB Mother"}')
 require_uid "tracked entity type" "$tracked_entity_type_uid"
 echo "  Tracked Entity Type: $tracked_entity_type_uid"
 
@@ -424,7 +361,7 @@ make_attr() {
     local name="$1"
     local short="$2"
     local type="$3"
-    get_or_create_attr "$name" "$short" "{\"name\":\"$name\",\"shortName\":\"$short\",\"valueType\":\"$type\",\"aggregationType\":\"NONE\"}"
+    get_or_create_by_name_shortname "trackedEntityAttributes" "$name" "$short" "{\"name\":\"$name\",\"shortName\":\"$short\",\"valueType\":\"$type\",\"aggregationType\":\"NONE\"}"
 }
 
 a1=$(make_attr "GMB Full Name" "GMB Full Name" "TEXT")
@@ -434,12 +371,12 @@ a4=$(make_attr "GMB Phone Number" "GMB Phone" "PHONE_NUMBER")
 a5=$(make_attr "GMB Parity" "GMB Parity" "NUMBER")
 a6=$(make_attr "GMB Previous Complications" "GMB Prev Complications" "TEXT")
 
-require_uid "GMB Full Name attribute" "$a1"
-require_uid "GMB Age attribute" "$a2"
-require_uid "GMB Village attribute" "$a3"
-require_uid "GMB Phone attribute" "$a4"
-require_uid "GMB Parity attribute" "$a5"
-require_uid "GMB Previous Complications attribute" "$a6"
+require_uid "attribute full name" "$a1"
+require_uid "attribute age" "$a2"
+require_uid "attribute village" "$a3"
+require_uid "attribute phone number" "$a4"
+require_uid "attribute parity" "$a5"
+require_uid "attribute previous complications" "$a6"
 
 echo "  Full Name:           $a1"
 echo "  Age:                 $a2"
@@ -448,7 +385,7 @@ echo "  Phone:               $a4"
 echo "  Parity:              $a5"
 echo "  Prev Complications:  $a6"
 
-# Step 3: Data Elements
+# Step 3: Data elements
 echo ""
 echo "Step 3: Data elements..."
 
@@ -456,7 +393,7 @@ make_de() {
     local name="$1"
     local short="$2"
     local type="$3"
-    get_or_create_de "$name" "$short" "{\"name\":\"$name\",\"shortName\":\"$short\",\"valueType\":\"$type\",\"domainType\":\"TRACKER\",\"aggregationType\":\"NONE\"}"
+    get_or_create_by_name_shortname "dataElements" "$name" "$short" "{\"name\":\"$name\",\"shortName\":\"$short\",\"valueType\":\"$type\",\"domainType\":\"TRACKER\",\"aggregationType\":\"NONE\"}"
 }
 
 d1=$(make_de "GMB BP Systolic" "GMB BP Systolic" "NUMBER")
@@ -472,18 +409,9 @@ d10=$(make_de "GMB Nurse Notes" "GMB Nurse Notes" "TEXT")
 d11=$(make_de "GMB Danger Signs" "GMB Danger Signs" "TEXT")
 d12=$(make_de "GMB Next Visit Date" "GMB Next Visit Date" "DATE")
 
-require_uid "BP Systolic data element" "$d1"
-require_uid "BP Diastolic data element" "$d2"
-require_uid "Haemoglobin data element" "$d3"
-require_uid "Weight data element" "$d4"
-require_uid "Gestational Age data element" "$d5"
-require_uid "Visit Number data element" "$d6"
-require_uid "Malaria Result data element" "$d7"
-require_uid "Iron Supplementation data element" "$d8"
-require_uid "Folic Acid data element" "$d9"
-require_uid "Nurse Notes data element" "$d10"
-require_uid "Danger Signs data element" "$d11"
-require_uid "Next Visit Date data element" "$d12"
+for de in "$d1" "$d2" "$d3" "$d4" "$d5" "$d6" "$d7" "$d8" "$d9" "$d10" "$d11" "$d12"; do
+    require_uid "data element" "$de"
+done
 
 echo "  BP Systolic:      $d1"
 echo "  BP Diastolic:     $d2"
@@ -523,12 +451,13 @@ prog_payload=$(cat <<EOF
 }
 EOF
 )
-prog_uid=$(get_or_create_program "GMB Antenatal Care" "GMB ANC" "$prog_payload")
+prog_uid=$(get_or_create_by_name_shortname "programs" "GMB Antenatal Care" "GMB ANC" "$prog_payload")
 require_uid "program" "$prog_uid"
+
 echo "  Program UID: $prog_uid"
 share "programs" "$prog_uid"
 
-# Step 5: Program Stage
+# Step 5: Program stage
 echo ""
 echo "Step 5: Creating ANC visit program stage..."
 
@@ -555,74 +484,150 @@ stage_payload=$(cat <<EOF
 }
 EOF
 )
-stage_uid=$(get_or_create_stage "GMB ANC Visit" "$stage_payload")
+stage_uid=$(get_or_create_program_stage "GMB ANC Visit" "$prog_uid" "$stage_payload")
 require_uid "program stage" "$stage_uid"
+
 echo "  Program Stage UID: $stage_uid"
 share "programStages" "$stage_uid"
 
-# Step 6: Seed runtime app configuration
+# Step 6: Seed runtime config
 echo ""
 echo "Step 6: Seeding runtime app configuration..."
 
 config_json=$(cat <<EOF
 {
-  "program": {"id": "$prog_uid", "name": "GMB Antenatal Care"},
-  "programStage": {"id": "$stage_uid", "name": "GMB ANC Visit"},
-  "trackedEntityType": {"id": "$tracked_entity_type_uid"},
-  "attributes": {
-    "fullName": "$a1",
-    "age": "$a2",
-    "village": "$a3",
-    "phoneNumber": "$a4",
-    "parity": "$a5",
-    "previousComplications": "$a6"
+  "program":{"id":"$prog_uid","name":"GMB Antenatal Care"},
+  "programStage":{"id":"$stage_uid","name":"GMB ANC Visit"},
+  "trackedEntityType":{"id":"$tracked_entity_type_uid"},
+  "attributes":{
+    "fullName":"$a1",
+    "age":"$a2",
+    "village":"$a3",
+    "phoneNumber":"$a4",
+    "parity":"$a5",
+    "previousComplications":"$a6"
   },
-  "dataElements": {
-    "bpSystolic": "$d1",
-    "bpDiastolic": "$d2",
-    "haemoglobin": "$d3",
-    "weight": "$d4",
-    "gestationalAge": "$d5",
-    "visitNumber": "$d6",
-    "malariaTestResult": "$d7",
-    "ironSupplementation": "$d8",
-    "folicAcid": "$d9",
-    "nurseNotes": "$d10",
-    "dangerSigns": "$d11",
-    "nextVisitDate": "$d12"
+  "dataElements":{
+    "bpSystolic":"$d1",
+    "bpDiastolic":"$d2",
+    "haemoglobin":"$d3",
+    "weight":"$d4",
+    "gestationalAge":"$d5",
+    "visitNumber":"$d6",
+    "malariaTestResult":"$d7",
+    "ironSupplementation":"$d8",
+    "folicAcid":"$d9",
+    "nurseNotes":"$d10",
+    "dangerSigns":"$d11",
+    "nextVisitDate":"$d12"
   },
-  "thresholds": {
-    "AGE_MIN": 18, "AGE_MAX": 35,
-    "BP_SYSTOLIC_HIGH": 140, "BP_DIASTOLIC_HIGH": 90,
-    "BP_SYSTOLIC_SEVERE": 160, "BP_DIASTOLIC_SEVERE": 110,
-    "HB_NORMAL_MIN": 11.0, "HB_MODERATE_ANAEMIA": 8.0, "HB_SEVERE_ANAEMIA": 7.0,
-    "ANC_MINIMUM_VISITS": 4, "FIRST_TRIMESTER_WEEKS": 13,
-    "GRAND_MULTIPARA_THRESHOLD": 4, "SCORE_HIGH": 40, "SCORE_MODERATE": 20
+  "thresholds":{
+    "AGE_MIN":18,
+    "AGE_MAX":35,
+    "BP_SYSTOLIC_HIGH":140,
+    "BP_DIASTOLIC_HIGH":90,
+    "BP_SYSTOLIC_SEVERE":160,
+    "BP_DIASTOLIC_SEVERE":110,
+    "HB_NORMAL_MIN":11.0,
+    "HB_MODERATE_ANAEMIA":8.0,
+    "HB_SEVERE_ANAEMIA":7.0,
+    "ANC_MINIMUM_VISITS":4,
+    "FIRST_TRIMESTER_WEEKS":13,
+    "GRAND_MULTIPARA_THRESHOLD":4,
+    "SCORE_HIGH":40,
+    "SCORE_MODERATE":20
   },
-  "malariaResults": ["Negative", "Positive (P. falciparum)", "Positive (P. vivax)", "Not done"],
-  "dangerSignOptions": ["Severe headache", "Blurred vision", "Severe abdominal pain", "Vaginal bleeding", "Convulsions", "Difficulty breathing", "Reduced fetal movement", "Swelling of face/hands"],
-  "complicationOptions": ["None", "Pre-eclampsia", "Gestational diabetes", "Placenta previa", "Previous C-section", "Postpartum haemorrhage", "Anaemia", "Preterm birth", "Stillbirth", "Miscarriage"],
-  "riskColors": {
-    "high": {"main": "#dc2626", "light": "#fef2f2", "border": "#fecaca", "dark": "#991b1b"},
-    "moderate": {"main": "#d97706", "light": "#fffbeb", "border": "#fde68a", "dark": "#92400e"},
-    "normal": {"main": "#16a34a", "light": "#f0fdf4", "border": "#bbf7d0", "dark": "#14532d"}
+  "malariaResults":["Negative","Positive (P. falciparum)","Positive (P. vivax)","Not done"],
+  "dangerSignOptions":["Severe headache","Blurred vision","Severe abdominal pain","Vaginal bleeding","Convulsions","Difficulty breathing","Reduced fetal movement","Swelling of face/hands"],
+  "complicationOptions":["None","Pre-eclampsia","Gestational diabetes","Placenta previa","Previous C-section","Postpartum haemorrhage","Anaemia","Preterm birth","Stillbirth","Miscarriage"],
+  "riskColors":{
+    "high":{"main":"#dc2626","light":"#fef2f2","border":"#fecaca","dark":"#991b1b"},
+    "moderate":{"main":"#d97706","light":"#fffbeb","border":"#fde68a","dark":"#92400e"},
+    "normal":{"main":"#16a34a","light":"#f0fdf4","border":"#bbf7d0","dark":"#14532d"}
   }
 }
 EOF
 )
+upsert_datastore_config "$config_json"
+echo "  Configuration saved to dataStore"
 
-if upsert_datastore_config "maternal_health_risk_alert/config" "$config_json"; then
-    echo "  Configuration saved to dataStore"
-else
-    echo "ERROR: Could not save configuration to dataStore." >&2
-    exit 1
-fi
-
-# Step 7: Write dhis2.js
+# Step 7: Write datastore-config.json
 echo ""
-echo "Step 7: Writing src/config/dhis2.js..."
+echo "Step 7: Writing datastore-config.json..."
 
-cat > src/config/dhis2.js << EOF
+cat > datastore-config.json <<EOF
+{
+    "program": { "id": "$prog_uid", "name": "GMB Antenatal Care" },
+    "programStage": { "id": "$stage_uid", "name": "GMB ANC Visit" },
+    "trackedEntityType": { "id": "$tracked_entity_type_uid" },
+    "attributes": {
+        "fullName": "$a1",
+        "age": "$a2",
+        "village": "$a3",
+        "phoneNumber": "$a4",
+        "parity": "$a5",
+        "previousComplications": "$a6"
+    },
+    "dataElements": {
+        "bpSystolic": "$d1",
+        "bpDiastolic": "$d2",
+        "haemoglobin": "$d3",
+        "weight": "$d4",
+        "gestationalAge": "$d5",
+        "visitNumber": "$d6",
+        "malariaTestResult": "$d7",
+        "ironSupplementation": "$d8",
+        "folicAcid": "$d9",
+        "nurseNotes": "$d10",
+        "dangerSigns": "$d11",
+        "nextVisitDate": "$d12"
+    }
+}
+EOF
+
+echo "  datastore-config.json updated"
+
+# Step 8: Write src/config/defaultUidConfig.js
+echo ""
+echo "Step 8: Writing src/config/defaultUidConfig.js..."
+
+cat > src/config/defaultUidConfig.js <<EOF
+export const DEFAULT_UID_CONFIG = {
+    program: { id: '$prog_uid', name: 'GMB Antenatal Care' },
+    programStage: { id: '$stage_uid', name: 'GMB ANC Visit' },
+    trackedEntityType: { id: '$tracked_entity_type_uid' },
+    attributes: {
+        fullName: '$a1',
+        age: '$a2',
+        village: '$a3',
+        phoneNumber: '$a4',
+        parity: '$a5',
+        previousComplications: '$a6',
+    },
+    dataElements: {
+        bpSystolic: '$d1',
+        bpDiastolic: '$d2',
+        haemoglobin: '$d3',
+        weight: '$d4',
+        gestationalAge: '$d5',
+        visitNumber: '$d6',
+        malariaTestResult: '$d7',
+        ironSupplementation: '$d8',
+        folicAcid: '$d9',
+        nurseNotes: '$d10',
+        dangerSigns: '$d11',
+        nextVisitDate: '$d12',
+    },
+}
+EOF
+
+echo "  src/config/defaultUidConfig.js updated"
+
+# Step 9: Write src/config/dhis2.js
+echo ""
+echo "Step 9: Writing src/config/dhis2.js..."
+
+cat > src/config/dhis2.js <<EOF
 // src/config/dhis2.js
 // AUTO-GENERATED by setup-dhis2.sh
 
@@ -698,6 +703,7 @@ EOF
 
 echo "  Written successfully"
 
+# Done
 echo ""
 echo "============================================"
 echo "  SETUP COMPLETE"
@@ -709,5 +715,4 @@ echo ""
 echo "  Next steps:"
 echo "  1. Restart:    npm start"
 echo "  2. Build:      npm run build"
-echo "  3. Test:       Register a patient and record a visit"
 echo ""

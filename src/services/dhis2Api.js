@@ -5,8 +5,6 @@
 // or called directly via the DHIS2 app runtime engine.
 // ─────────────────────────────────────────────────────────────
 
-import { DEFAULT_APP_SETTINGS } from '../config/appSettings.js'
-
 /**
  * buildRegistrationPayload
  * ─────────────────────────
@@ -23,7 +21,11 @@ import { DEFAULT_APP_SETTINGS } from '../config/appSettings.js'
  * @param {string} orgUnit     - UID of the selected health facility
  * @returns {object}           - payload ready to POST to DHIS2
  */
-export function buildRegistrationPayload(formValues, orgUnit, config = DEFAULT_APP_SETTINGS) {
+export function buildRegistrationPayload(formValues, orgUnit, config) {
+  if (!config?.trackedEntityType?.id) {
+    throw new Error('Registration requires configuration. Open Configuration and save the required metadata mappings first.')
+  }
+
   const {
     fullName,
     age,
@@ -66,8 +68,12 @@ export function buildEnrollmentPayload(
   orgUnit,
   enrollmentDate,
   gestationalAge,
-  config = DEFAULT_APP_SETTINGS
+  config
 ) {
+  if (!config?.program?.id) {
+    throw new Error('Enrollment requires configuration. Open Configuration and save the required metadata mappings first.')
+  }
+
   return {
     program: config.program.id,
     trackedEntityInstance,

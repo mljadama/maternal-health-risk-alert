@@ -1,0 +1,27 @@
+﻿export const DEFAULT_UID_CONFIG = {
+    program: { id: 'ncYQPdKz1xs', name: 'GMB Antenatal Care' },
+    programStage: { id: 'RvYm3eTyZu7', name: 'GMB ANC Visit' },
+    trackedEntityType: { id: 'Q8YrW56Psho' },
+    attributes: {
+        fullName: 'Me0zmjdZCoM',
+        age: 'yk3nsLjfuNE',
+        village: 'vvBqeHshfxw',
+        phoneNumber: 'oShm6PkpTee',
+        parity: 'Jpkx53Kmx7X',
+        previousComplications: 'CNYkcAA51VL',
+    },
+    dataElements: {
+        bpSystolic: 'I4MqqIug5A6',
+        bpDiastolic: 'IeQoz2bYpSx',
+        haemoglobin: 'jUzPFtoZg77',
+        weight: 'A9hfa0OLy2b',
+        gestationalAge: 'KjXBtzwJqck',
+        visitNumber: 'MRimjFegz1L',
+        malariaTestResult: 'S3y0WGv9uGN',
+        ironSupplementation: 'LO27M39G1tb',
+        folicAcid: 'Pibm8o2ObWR',
+        nurseNotes: 'bHpBQs5icOg',
+        dangerSigns: 'lDBRwwVS1iy',
+        nextVisitDate: 'WSQoZEtLCKl',
+    },
+}

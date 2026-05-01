@@ -6,18 +6,30 @@ import { useDataQuery } from '@dhis2/app-runtime'
 import { useMemo } from 'react'
 import { useDhis2Config } from './useDhis2Config.js'
 import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
+import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
 
 const getDV = (list = [], uid) =>
     list.find(d => d.dataElement === uid)?.value ?? null
 
 export function useVisits(teiUid) {
     const { config, loading: configLoading } = useDhis2Config()
+    const configValidation = useMemo(() => validateAppSettings(config), [config])
     const {
         preferredOrgUnitId,
         meLoading,
         meError,
     } = useTrackerOrgUnitScope()
     const { dataElements } = config
+
+    const configError = useMemo(() => {
+        if (configValidation.isValid) return null
+        return new Error(
+            buildConfigValidationMessage(
+                configValidation,
+                'Cannot load visit history because configuration is incomplete.'
+            )
+        )
+    }, [configValidation])
 
     const trackerQueryParams = useMemo(() => {
         if (preferredOrgUnitId) {
@@ -26,7 +38,7 @@ export function useVisits(teiUid) {
         return { ouMode: 'ACCESSIBLE' }
     }, [preferredOrgUnitId])
 
-    const shouldPauseQueries = !teiUid || configLoading || meLoading
+    const shouldPauseQueries = !teiUid || configLoading || meLoading || Boolean(configError)
 
     const VISITS_QUERY = useMemo(() => ({
         visits: {
@@ -48,7 +60,7 @@ export function useVisits(teiUid) {
         lazy:      shouldPauseQueries,
     })
 
-    const resolvedError = meError || error
+    const resolvedError = configError || meError || error
 
     const visits = useMemo(() => {
         if (!data) return []

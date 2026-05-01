@@ -1,7 +1,14 @@
 {
     "name": "maternal-health-risk-alert",
-    "version": "1.0.1",
-    "description": "Automated antenatal care risk assessment and patient tracking for DHIS2",
+    "version": "1.0.2",
+    "title": "Maternal Health Risk Alert",
+    "description": "Automated antenatal care risk assessment and patient tracking for DHIS2. Identifies pregnant women at high risk during ANC visits using evidence-based clinical algorithms.",
+    "long_description": "Maternal Health Risk Alert is a DHIS2 app for antenatal care (ANC) clinics that uses evidence-based clinical algorithms to identify pregnant women at high risk during routine ANC visits. The app integrates with DHIS2's Tracker API to assess risk factors (hypertension, anemia, gestational diabetes, obstetric history) and provides color-coded risk categorization (red/amber/green). Risk assessments are automatically recorded in DHIS2 and displayed in dashboards for care coordination. The app supports any DHIS2 instance (v2.38+) and any ANC program structure through flexible metadata configuration.",
+    "author": {
+        "name": "Maternal Health Development Team",
+        "url": "https://github.com/your-org/maternal-health-risk-alert"
+    },
+    "keywords": ["maternal-health", "antenatal-care", "pregnancy", "risk-assessment", "tracker", "clinical-decision-support"],
     "license": "BSD-3-Clause",
     "private": true,
     "scripts": {
@@ -13,13 +20,11 @@
         "lint": "d2-app-scripts lint"
     },
     "dependencies": {
-        "@babel/eslint-parser": "^7.28.6",
         "@dhis2/app-runtime": "^3.10.0",
         "@dhis2/ui": "^9.0.0",
         "@emotion/react": "^11.14.0",
         "@emotion/styled": "^11.14.1",
         "dayjs": "^1.11.13",
-        "eslint": "^10.2.1",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
         "react-router-dom": "^6.28.0",
@@ -29,6 +34,7 @@
         "@dhis2/cli-app-scripts": "12.10.4",
         "@types/react": "^18.3.1",
         "@types/react-dom": "^18.3.1",
-        "acorn": "^8.16.0"
+        "acorn": "^8.16.0",
+        "eslint": "^8.57.0"
     }
 }
