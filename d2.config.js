@@ -11,7 +11,7 @@ const config = {
     type: 'app',
     name: 'Maternal Health Risk Alert',
     title: 'Maternal Health Risk Alert',
-    version: '1.0.2',
+    version: '1.0.3',
     description: 'Automated antenatal care risk assessment and patient tracking using evidence-based clinical algorithms',
     longDescription: 'Maternal Health Risk Alert is a DHIS2 app for antenatal care (ANC) clinics that uses evidence-based clinical algorithms to identify pregnant women at high risk during routine ANC visits. The app integrates with DHIS2\'s Tracker API to assess risk factors and provides color-coded risk categorization. Risk assessments are automatically recorded in DHIS2 and displayed in dashboards for care coordination.',
     minDHIS2Version: '2.38',
