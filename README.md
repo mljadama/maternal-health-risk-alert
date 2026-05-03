@@ -1,10 +1,6 @@
-﻿# Maternal Health Risk Alert System
+# Maternal Health Risk Alert System
 
 A DHIS2 web application that automatically identifies high-risk pregnancies during antenatal care using evidence-based clinical rules.
-
-## Available on DHIS2 App Hub
-
-[Install from DHIS2 App Hub](https://apps.dhis2.org/app/maternal-health-risk-alert)
 
 ## Screenshots
 
