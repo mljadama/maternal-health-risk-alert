@@ -36,7 +36,7 @@ The app uses evidence-based clinical rules to score pregnancy risk based on vita
 - Colour-coded risk alerts dashboard for high, moderate, and normal risk
 - Patient visit history with blood pressure and haemoglobin trend charts
 - Runtime configuration page for mapping metadata to any DHIS2 instance
-- Compatible with DHIS2 v2.38 and above
+- Compatible with DHIS2 v2.42 and above (uses Tracker API v42)
 
 ## Risk engine
 
@@ -65,7 +65,7 @@ The app uses evidence-based clinical rules to score pregnancy risk based on vita
 ### Requirements
 
 - Node.js v20 or higher
-- A running DHIS2 instance v2.38 or above
+- A running DHIS2 instance v2.42 or above (requires Tracker API v42)
 - `curl` and `base64` tools if you plan to run the setup script
 
 ### Install
