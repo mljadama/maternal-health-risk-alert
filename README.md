@@ -36,7 +36,7 @@ The app uses evidence-based clinical rules to score pregnancy risk based on vita
 - Colour-coded risk alerts dashboard for high, moderate, and normal risk
 - Patient visit history with blood pressure and haemoglobin trend charts
 - Runtime configuration page for mapping metadata to any DHIS2 instance
-- Compatible with DHIS2 v2.42 and above
+- Compatible with DHIS2 v2.38 and above
 
 ## Risk engine
 
