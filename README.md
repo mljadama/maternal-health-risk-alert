@@ -9,10 +9,17 @@ A DHIS2 web application that automatically identifies high-risk pregnancies duri
 
 ## Screenshots
 
-![Patient Detail](screenshots/screenshot-patient-detail.png)
+### Dashboard
+![Dashboard](screenshots/screenshot-dashboard.png)
 
-### Risk Alerts
-![Register](screenshots/screenshot-register.png)
+### Patients list
+![Patients list](screenshots/screenshot-patients.png)
+
+### Patient register
+![Register patient](screenshots/screenshot-register.png)
+
+### Risk alerts
+![Risk alerts](screenshots/screenshot-risk-alert.png)
 
 ## Overview
 
@@ -29,7 +36,7 @@ The app uses evidence-based clinical rules to score pregnancy risk based on vita
 - Colour-coded risk alerts dashboard for high, moderate, and normal risk
 - Patient visit history with blood pressure and haemoglobin trend charts
 - Runtime configuration page for mapping metadata to any DHIS2 instance
-- Compatible with DHIS2 v2.38 and above
+- Compatible with DHIS2 v2.42 and above
 
 ## Risk engine
 
