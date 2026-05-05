@@ -4,7 +4,7 @@ A DHIS2 web application that automatically identifies high-risk pregnancies duri
 
 ## Available on DHIS2 App Hub
 
-[Install from DHIS2 App Hub](https://apps.dhis2.org/app/maternal-health-risk-alert)
+[Install from DHIS2 App Hub](https://apps.dhis2.org/?query=Maternal%20Health%20Risk%20Alert)
 > ✅ **v1.0.3 approved on May 5, 2026** — This version has completed App Hub review and is recommended for production use.
 
 ## Screenshots
