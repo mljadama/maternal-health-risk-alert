@@ -1,5 +1,11 @@
 ﻿# Maternal Health Risk Alert System
 
+## Why I built this
+
+The Gambia recorded 130 maternal deaths in 2025, most caused by conditions such as pre-eclampsia, severe anaemia, and malaria that can be detected early with timely screening. Yet in many antenatal care settings, risk identification still depends on manual review, overstretched staff, and paper records.
+
+I built the Maternal Health Risk Alert System to help close that gap. The app automatically scores pregnancy risk the moment clinical data is entered, so high-risk patients are flagged immediately rather than being discovered too late.
+
 A DHIS2 web application that automatically identifies high-risk pregnancies during antenatal care using evidence-based clinical rules.
 
 ## Available on DHIS2 App Hub
