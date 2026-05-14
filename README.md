@@ -26,7 +26,6 @@ A DHIS2 web application that automatically identifies high-risk pregnancies duri
 Maternal Health Risk Alert helps antenatal care teams identify high-risk pregnancies using routine DHIS2 tracker data. It analyzes each patient's clinical information as it is entered and highlights pregnancies that may need closer follow-up.
 
 The app uses evidence-based clinical rules to score pregnancy risk based on vital signs, clinical findings, and obstetric history. Results are shown in real time across the dashboard, patient list, and risk alert views.
-  -F "file=@build/bundle/Maternal Health Risk Alert-1.0.3.zip"
 
 ## Features
 
