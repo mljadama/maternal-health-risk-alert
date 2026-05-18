@@ -2,11 +2,11 @@
 
 A DHIS2 web application that automatically identifies high-risk pregnancies during antenatal care using evidence-based clinical rules.
 
-## Why I built this
+## Why this project exists
 
-The Gambia recorded 130 maternal deaths in 2025, most caused by conditions such as pre-eclampsia, severe anaemia, and malaria that can be detected early with timely screening. Yet in many antenatal care settings, risk identification still depends on manual review, overstretched staff, and paper records.
+The Gambia recorded 130 maternal deaths in 2025, many linked to conditions such as pre-eclampsia, severe anaemia, and malaria that can be detected early with timely screening. Yet in many antenatal care settings, risk identification still depends on manual review, overstretched staff, and paper records.
 
-I built the Maternal Health Risk Alert System to help close that gap. The app automatically scores pregnancy risk the moment clinical data is entered, so high-risk patients are flagged immediately rather than being discovered too late.
+Maternal Health Risk Alert was built to help close that gap. The app automatically scores pregnancy risk as soon as clinical data is entered, so high-risk patients are flagged immediately rather than discovered too late.
 
 ## Available on DHIS2 App Hub
 
@@ -51,7 +51,7 @@ The app uses evidence-based clinical rules to score pregnancy risk based on vita
 | Severe anaemia Hb below 7 g/dL | +45 |
 | Active malaria infection | +40 |
 | Hypertension BP 140/90 or above | +35 |
-| Moderate anaemia Hb below 8 g/dL | +30 |
+| Moderate anaemia Hb 7.0-7.9 g/dL | +30 |
 | Late ANC booking after 13 weeks | +20 to +30 |
 | Adolescent pregnancy age under 18 | +25 |
 | Danger signs reported | +25 per sign |
@@ -144,8 +144,8 @@ different DHIS2 instances.
 
 ```bash
 npm run build
-curl.exe -X POST "http://your-dhis2/api/apps" -u "admin:password" \
-  -F "file=@build/bundle/Maternal Health Risk Alert-1.0.1.zip"
+curl -X POST "http://your-dhis2/api/apps" -u "admin:password" \
+  -F "file=@build/bundle/Maternal Health Risk Alert-1.0.3.zip"
 ```
 
 ### Post-installation setup
