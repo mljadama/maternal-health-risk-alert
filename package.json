@@ -2,8 +2,8 @@
     "name": "maternal-health-risk-alert",
     "version": "1.0.3",
     "title": "Maternal Health Risk Alert",
-    "description": "Automated antenatal care risk assessment and patient tracking for DHIS2. Identifies pregnant women at high risk during ANC visits using evidence-based clinical algorithms.",
-    "long_description": "Maternal Health Risk Alert is a DHIS2 app for antenatal care (ANC) clinics that uses evidence-based clinical algorithms to identify pregnant women at high risk during routine ANC visits. The app integrates with DHIS2's Tracker API to assess risk factors (hypertension, anemia, gestational diabetes, obstetric history) and provides color-coded risk categorization (red/amber/green). Risk assessments are automatically recorded in DHIS2 and displayed in dashboards for care coordination. The app supports any DHIS2 instance (v2.38+) and any ANC program structure through flexible metadata configuration.",
+    "description": "Antenatal care risk screening and patient tracking for DHIS2.",
+    "long_description": "Maternal Health Risk Alert helps antenatal care teams screen pregnancies for risk using DHIS2 tracker data and evidence-based rules.",
     "author": {
         "name": "Maternal Health Development Team",
         "url": "https://github.com/your-org/maternal-health-risk-alert"
