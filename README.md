@@ -1,4 +1,4 @@
-# Maternal Health Risk Alert System
+﻿# Maternal Health Risk Alert System
 
 A DHIS2 web application that automatically identifies high-risk pregnancies during antenatal care using evidence-based clinical rules.
 
@@ -41,7 +41,7 @@ The app uses evidence-based clinical rules to score pregnancy risk based on vita
 - Colour-coded risk alerts dashboard for high, moderate, and normal risk
 - Patient visit history with blood pressure and haemoglobin trend charts
 - Runtime configuration page for mapping metadata to any DHIS2 instance
-- Compatible with DHIS2 v2.42 and above (uses Tracker API v42)
+- Compatible with DHIS2 v2.38 and above
 
 ## Risk engine
 
@@ -63,14 +63,14 @@ The app uses evidence-based clinical rules to score pregnancy risk based on vita
 - React 18 and React Router v6
 - DHIS2 UI Library
 - Recharts v2
-- DHIS2 Tracker API v42
+- DHIS2 Tracker APIs
 
 ## Setup
 
 ### Requirements
 
 - Node.js v20 or higher
-- A running DHIS2 instance v2.42 or above (requires Tracker API v42)
+- A running DHIS2 instance v2.38 or above
 - `curl` and `base64` tools if you plan to run the setup script
 
 ### Install
@@ -144,7 +144,7 @@ different DHIS2 instances.
 
 ```bash
 npm run build
-curl -X POST "http://your-dhis2/api/apps" -u "admin:password" \
+curl.exe -X POST "http://your-dhis2/api/apps" -u "admin:password" \
   -F "file=@build/bundle/Maternal Health Risk Alert-1.0.3.zip"
 ```
 
