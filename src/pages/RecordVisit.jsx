@@ -128,7 +128,8 @@ export default function RecordVisit() {
         program: config.program.id,
         ...trackerQueryParams,
         fields: 'enrollment,orgUnit,orgUnitName',
-        paging: false,
+        page: 1,
+        pageSize: 500,
       }),
     },
   }), [config.program.id, trackerQueryParams])

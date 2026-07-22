@@ -103,7 +103,7 @@ export const ORG_UNITS_QUERY = {
     params: {
       fields: 'id,displayName',
       userOnly: true,
-      paging: false,
+      pageSize: 500,
     },
   },
 }

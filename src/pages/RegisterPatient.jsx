@@ -23,7 +23,7 @@ const INIT = {
 const ORG_UNITS_QUERY = {
   orgUnits: {
     resource: 'organisationUnits',
-    params: { fields: 'id,displayName', userOnly: true, paging: false },
+    params: { fields: 'id,displayName', userOnly: true, pageSize: 500 },
   },
 }
 

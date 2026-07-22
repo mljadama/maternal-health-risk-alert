@@ -1,6 +1,6 @@
 // src/hooks/usePatients.js
 import { useDataQuery } from '@dhis2/app-runtime'
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { assessRisk } from '../services/riskEngine.js'
 import { useDhis2Config } from './useDhis2Config.js'
 import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
@@ -96,26 +96,30 @@ export function usePatients() {
             params: {
                 fields:  'id,displayName',
                 userOnly: true,
-                paging:  false,
+                pageSize: 500,
             },
         },
     }), [])
 
-    const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: shouldPauseQueries })
-    const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: shouldPauseQueries })
-    const { data: ouData, loading: ol, refetch: ro } = useDataQuery(ORG_UNITS_QUERY, { lazy: configLoading || meLoading })
+    const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: true })
+    const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: true })
+    const { data: ouData, loading: ol, refetch: ro } = useDataQuery(ORG_UNITS_QUERY, { lazy: true })
 
+    useEffect(() => {
+        if (!shouldPauseQueries && config.program?.id) {
+            rp()
+            re()
+            ro()
+        }
+    }, [shouldPauseQueries, config.program?.id])
 
-    const loading = pl || el || ol || configLoading || meLoading
+    const loading = (pl || el || ol || configLoading || meLoading) && (!pData || !eData)
     const queryError = normalizeQueryError(meError || pe || ee)
     const error = configError || queryError
 
     const ouMap = useMemo(() => {
         const map = {}
-        // DHIS2 wraps the array directly under the resource key (ouData.orgUnits is the array)
-        const list = Array.isArray(ouData?.orgUnits)
-            ? ouData.orgUnits
-            : (ouData?.orgUnits?.organisationUnits ?? [])
+        const list = ouData?.orgUnits?.organisationUnits ?? (Array.isArray(ouData?.orgUnits) ? ouData.orgUnits : [])
         list.forEach(ou => {
             if (ou?.id) map[ou.id] = ou.displayName
         })

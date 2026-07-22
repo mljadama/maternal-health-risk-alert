@@ -55,7 +55,8 @@ export function useVisits(teiUid) {
                 ...trackerQueryParams,
                 fields:        'event,trackedEntity,occurredAt,orgUnit,orgUnitName,status,dataValues',
                 order:         'occurredAt:asc',
-                paging:        false,
+                page:          1,
+                pageSize:      500,
             }),
         },
     }), [config.program.id, config.programStage.id, teiUid, trackerQueryParams])

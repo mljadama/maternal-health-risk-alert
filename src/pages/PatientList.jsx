@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePatients } from '../hooks/usePatients.js'
 import { getRiskLabel } from '../services/riskEngine.js'
@@ -14,6 +14,10 @@ function levelClass(level) {
 export default function PatientList() {
   const navigate = useNavigate()
   const { patients, loading, error, refetch } = usePatients()
+
+  useEffect(() => {
+    refetch()
+  }, [])
 
   const [search, setSearch] = useState('')
   const [riskFilter, setRiskFilter] = useState('all')
@@ -86,7 +90,10 @@ export default function PatientList() {
           <h1 className={styles.title}>Patients</h1>
           <p className={styles.subtitle}>{patients.length} registered - {counts.high} high risk - {counts.moderate} moderate</p>
         </div>
-        <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => navigate('/register')}>Register patient</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className={styles.btn} onClick={refetch}>Refresh</button>
+          <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => navigate('/register')}>Register patient</button>
+        </div>
       </div>
 
       <div className={styles.toolbar}>

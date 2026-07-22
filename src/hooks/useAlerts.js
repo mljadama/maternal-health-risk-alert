@@ -79,23 +79,28 @@ export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODER
             resource: 'organisationUnits',
             params: {
                 fields: 'id,displayName',
-                paging: false,
+                pageSize: 500,
             },
         },
     }), [])
 
-    const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: shouldPauseQueries })
-    const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: shouldPauseQueries })
+    const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: true })
+    const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: true })
     const { data: ouData, loading: ol } = useDataQuery(ORG_UNITS_QUERY, { lazy: configLoading || meLoading })
 
-    const loading = pl || el || ol || configLoading || meLoading
+    React.useEffect(() => {
+        if (!shouldPauseQueries && config.program?.id) {
+            rp()
+            re()
+        }
+    }, [shouldPauseQueries, config.program?.id])
+
+    const loading = (pl || el || ol || configLoading || meLoading) && (!pData || !eData)
     const error   = configError || meError || pe || ee
 
     const ouMap = useMemo(() => {
         const map = {}
-        const list = Array.isArray(ouData?.orgUnits)
-            ? ouData.orgUnits
-            : (ouData?.orgUnits?.organisationUnits ?? [])
+        const list = ouData?.orgUnits?.organisationUnits ?? (Array.isArray(ouData?.orgUnits) ? ouData.orgUnits : [])
         list.forEach(ou => {
             if (ou?.id) map[ou.id] = ou.displayName
         })
