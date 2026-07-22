@@ -5,6 +5,7 @@ import { assessRisk, getRiskLabel } from '../services/riskEngine.js'
 import { useDhis2Config } from '../hooks/useDhis2Config.js'
 import { useTrackerOrgUnitScope } from '../hooks/useTrackerOrgUnitScope.js'
 import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
+import { validateVisitForm } from '../utils/validationUtils.js'
 import styles from './FormPage.module.css'
 
 const today = () => new Date().toISOString().split('T')[0]
@@ -32,6 +33,29 @@ const TRACKER_MUTATION = {
   data: ({ payload }) => payload,
 }
 
+function extractEventErrorDetails(report) {
+  if (!report) return ''
+  const msgs = []
+
+  if (report.validationReport?.errorReports?.length) {
+    report.validationReport.errorReports.forEach(err => {
+      if (err.message) msgs.push(err.message)
+    })
+  }
+
+  if (report.bundleReport?.typeReportMap) {
+    Object.values(report.bundleReport.typeReportMap).forEach(tr => {
+      tr?.objectReports?.forEach(obj => {
+        obj?.errorReports?.forEach(err => {
+          if (err.message) msgs.push(err.message)
+        })
+      })
+    })
+  }
+
+  return msgs.length ? msgs.join(' | ') : (report.description || report.message || '')
+}
+
 async function pollJob(engine, jobId, maxAttempts = 10) {
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise(r => setTimeout(r, 1500))
@@ -42,29 +66,19 @@ async function pollJob(engine, jobId, maxAttempts = 10) {
       const report = result?.job
       if (report?.status === 'OK' || report?.status === 'WARNING') return { success: true }
       if (report?.status === 'ERROR') {
-        const detail =
-          report?.description ||
-          report?.message ||
-          report?.bundleReport?.typeReportMap?.EVENT?.objectReports?.[0]?.message ||
-          report?.bundleReport?.typeReportMap?.TRACKED_ENTITY?.objectReports?.[0]?.message ||
-          'Event save failed on DHIS2 server'
-        throw new Error(detail)
+        const detail = extractEventErrorDetails(report) || 'Event save failed on DHIS2 server'
+        throw new Error(`DHIS2 server validation error: ${detail}`)
       }
     } catch (err) {
-      if (err.message.includes('failed')) throw err
+      if (err.message.includes('failed') || err.message.includes('validation error')) throw err
     }
   }
   return { success: true }
 }
 
 function validate(v) {
-  const e = {}
-  if (!v.visitDate) e.visitDate = 'Required'
-  if (!v.bpSystolic || v.bpSystolic < 60 || v.bpSystolic > 250) e.bpSystolic = 'Enter 60-250'
-  if (!v.bpDiastolic || v.bpDiastolic < 40 || v.bpDiastolic > 150) e.bpDiastolic = 'Enter 40-150'
-  if (!v.haemoglobin || v.haemoglobin < 3 || v.haemoglobin > 20) e.haemoglobin = 'Enter 3-20'
-  if (!v.weight || v.weight < 25 || v.weight > 200) e.weight = 'Enter 25-200'
-  if (!v.gestationalAge || v.gestationalAge < 1 || v.gestationalAge > 42) e.gestationalAge = 'Enter 1-42'
+  const e = validateVisitForm(v)
+  if (!v.visitDate) e.visitDate = 'Visit date is required'
   return e
 }
 
@@ -84,9 +98,17 @@ export default function RecordVisit() {
 
   const trackerQueryParams = useMemo(() => {
     if (preferredOrgUnitId) {
-      return { ou: preferredOrgUnitId, ouMode: 'DESCENDANTS' }
+      return {
+        orgUnit: preferredOrgUnitId,
+        ou: preferredOrgUnitId,
+        orgUnitMode: 'DESCENDANTS',
+        ouMode: 'DESCENDANTS',
+      }
     }
-    return { ouMode: 'ACCESSIBLE' }
+    return {
+      orgUnitMode: 'ACCESSIBLE',
+      ouMode: 'ACCESSIBLE',
+    }
   }, [preferredOrgUnitId])
 
   const configError = useMemo(() => {

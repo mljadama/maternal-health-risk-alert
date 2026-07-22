@@ -4,6 +4,7 @@ import { useDataQuery } from '@dhis2/app-runtime'
 import { useRegisterPatient } from '../hooks/useRegisterPatient.js'
 import { useDhis2Config } from '../hooks/useDhis2Config.js'
 import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
+import { validatePatientForm } from '../utils/validationUtils.js'
 import styles from './FormPage.module.css'
 
 const STEPS = ['Personal details', 'Pregnancy info', 'Review & submit']
@@ -27,22 +28,21 @@ const ORG_UNITS_QUERY = {
 }
 
 function validate(values, step) {
+  const fullErrors = validatePatientForm(values)
   const errors = {}
+
   if (step === 0 || step === 'all') {
-    if (!values.fullName.trim()) errors.fullName = 'Required'
-    if (!values.age || values.age < 10 || values.age > 60) errors.age = 'Enter valid age (10 to 60)'
-    if (!values.village.trim()) errors.village = 'Required'
-    if (!values.phoneNumber.trim()) errors.phoneNumber = 'Required'
-    if (!values.orgUnit) errors.orgUnit = 'Select a facility'
+    if (fullErrors.fullName) errors.fullName = fullErrors.fullName
+    if (fullErrors.age) errors.age = fullErrors.age
+    if (fullErrors.village) errors.village = fullErrors.village
+    if (fullErrors.phoneNumber) errors.phoneNumber = fullErrors.phoneNumber
+    if (fullErrors.orgUnit) errors.orgUnit = fullErrors.orgUnit
   }
   if (step === 1 || step === 'all') {
-    if (!values.gestationalAge || values.gestationalAge < 1 || values.gestationalAge > 42) {
-      errors.gestationalAge = 'Enter weeks (1 to 42)'
-    }
-    if (values.parity === '' || values.parity < 0 || values.parity > 15) {
-      errors.parity = 'Enter previous births (0 to 15)'
-    }
+    if (fullErrors.gestationalAge) errors.gestationalAge = fullErrors.gestationalAge
+    if (fullErrors.parity) errors.parity = fullErrors.parity
   }
+
   return errors
 }
 

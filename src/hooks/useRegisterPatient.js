@@ -46,6 +46,40 @@ function buildPayload(formValues, orgUnit, config) {
     }
 }
 
+function extractTrackerErrorDetails(report) {
+    if (!report) return ''
+
+    const errorMessages = []
+
+    // 1. Validation Report errors
+    if (report.validationReport?.errorReports?.length) {
+        report.validationReport.errorReports.forEach(err => {
+            if (err.message) errorMessages.push(err.message)
+        })
+    }
+
+    // 2. Object reports in bundle report
+    if (report.bundleReport?.typeReportMap) {
+        Object.values(report.bundleReport.typeReportMap).forEach(typeReport => {
+            if (typeReport?.objectReports) {
+                typeReport.objectReports.forEach(objReport => {
+                    if (objReport?.errorReports) {
+                        objReport.errorReports.forEach(err => {
+                            if (err.message) errorMessages.push(err.message)
+                        })
+                    }
+                })
+            }
+        })
+    }
+
+    if (errorMessages.length > 0) {
+        return errorMessages.join(' | ')
+    }
+
+    return report.message || ''
+}
+
 // Poll the tracker job until it completes
 async function pollJob(engine, jobId, maxAttempts = 10) {
     for (let i = 0; i < maxAttempts; i++) {
@@ -64,10 +98,14 @@ async function pollJob(engine, jobId, maxAttempts = 10) {
                 return { teiUid: teiUid || 'created', enrollmentUid: enrUid || 'created' }
             }
             if (report?.status === 'ERROR') {
-                throw new Error('Registration failed on DHIS2 server — check program sharing settings')
+                const details = extractTrackerErrorDetails(report)
+                const errorMsg = details
+                    ? `DHIS2 server validation error: ${details}`
+                    : 'Registration failed on DHIS2 server. Please verify patient data and server settings.'
+                throw new Error(errorMsg)
             }
         } catch (err) {
-            if (err.message.includes('Registration failed')) throw err
+            if (err.message.includes('Registration failed') || err.message.includes('validation error')) throw err
             // Still processing — keep polling
         }
     }
