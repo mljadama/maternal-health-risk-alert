@@ -95,7 +95,7 @@ export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODER
         }
     }, [shouldPauseQueries, config.program?.id])
 
-    const loading = (pl || el || ol || configLoading || meLoading) && (!pData || !eData)
+    const loading = (pl || ol || configLoading || meLoading) && !pData
     const error   = configError || meError || pe || ee
 
     const ouMap = useMemo(() => {
@@ -108,24 +108,30 @@ export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODER
     }, [ouData])
 
     const alerts = useMemo(() => {
-        if (!pData || !eData) return []
+        if (!pData) return []
 
-        const teis   = pData.patients?.trackedEntities ?? []
-        const events = eData.events?.events ?? []
+        const rawTeis = Array.isArray(pData.patients)
+            ? pData.patients
+            : (pData.patients?.trackedEntities ?? pData.patients?.instances ?? pData.patients?.trackedEntityInstances ?? [])
+        const events = Array.isArray(eData?.events)
+            ? eData.events
+            : (eData?.events?.events ?? eData?.events?.instances ?? [])
 
         const byTEI = {}
         events.forEach(ev => {
-            const id = ev.trackedEntity
-            if (!byTEI[id]) byTEI[id] = []
-            byTEI[id].push(ev)
+            const id = ev.trackedEntity || ev.trackedEntityInstance || ev.tei
+            if (id) {
+                if (!byTEI[id]) byTEI[id] = []
+                byTEI[id].push(ev)
+            }
         })
         Object.values(byTEI).forEach(arr =>
             arr.sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt))
         )
 
-        return teis
+        return rawTeis
             .map(tei => {
-                const id         = tei.trackedEntity
+                const id         = tei.trackedEntity || tei.trackedEntityInstance || tei.id
                 const visits     = byTEI[id] ?? []
                 const latest     = visits[0] ?? null
                 const firstVisit = visits[visits.length - 1] ?? null

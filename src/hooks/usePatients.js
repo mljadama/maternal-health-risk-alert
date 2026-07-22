@@ -113,7 +113,7 @@ export function usePatients() {
         }
     }, [shouldPauseQueries, config.program?.id])
 
-    const loading = (pl || el || ol || configLoading || meLoading) && (!pData || !eData)
+    const loading = (pl || ol || configLoading || meLoading) && !pData
     const queryError = normalizeQueryError(meError || pe || ee)
     const error = configError || queryError
 
@@ -127,18 +127,23 @@ export function usePatients() {
     }, [ouData])
 
     const patients = useMemo(() => {
-        if (!pData || !eData) return []
+        if (!pData) return []
 
-        const rawTeis = pData.patients?.trackedEntities ?? []
-        const events = eData.events?.events ?? []
+        const rawTeis = Array.isArray(pData.patients)
+            ? pData.patients
+            : (pData.patients?.trackedEntities ?? pData.patients?.instances ?? pData.patients?.trackedEntityInstances ?? [])
+        const events = Array.isArray(eData?.events)
+            ? eData.events
+            : (eData?.events?.events ?? eData?.events?.instances ?? [])
 
         // Some DHIS2 responses can include repeated tracked entities across
         // enrollments/pages. Keep the last seen entry per UID so each
         // patient renders once.
         const teis = Array.from(
             rawTeis.reduce((acc, tei) => {
-                if (tei?.trackedEntity) {
-                    acc.set(tei.trackedEntity, tei)
+                const id = tei?.trackedEntity || tei?.trackedEntityInstance || tei?.id
+                if (id) {
+                    acc.set(id, { ...tei, trackedEntity: id })
                 }
                 return acc
             }, new Map()).values()
@@ -146,9 +151,11 @@ export function usePatients() {
 
         const byTEI = {}
         events.forEach(ev => {
-            const id = ev.trackedEntity
-            if (!byTEI[id]) byTEI[id] = []
-            byTEI[id].push(ev)
+            const id = ev.trackedEntity || ev.trackedEntityInstance || ev.tei
+            if (id) {
+                if (!byTEI[id]) byTEI[id] = []
+                byTEI[id].push(ev)
+            }
         })
         Object.values(byTEI).forEach(arr =>
             arr.sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt))
