@@ -21,21 +21,6 @@ const TRACKER_MUTATION = {
 
 function buildPayload(formValues, orgUnit, config) {
     const today = new Date().toISOString().split('T')[0]
-    const events = []
-    if (formValues.gestationalAge && config.programStage?.id && config.dataElements?.gestationalAge) {
-        events.push({
-            program: config.program.id,
-            programStage: config.programStage.id,
-            orgUnit,
-            occurredAt: today,
-            scheduledAt: today,
-            status: 'COMPLETED',
-            dataValues: [
-                { dataElement: config.dataElements.gestationalAge, value: String(formValues.gestationalAge) },
-            ],
-        })
-    }
-
     return {
         trackedEntities: [
             {
@@ -55,7 +40,6 @@ function buildPayload(formValues, orgUnit, config) {
                         orgUnit,
                         enrolledAt: today,
                         occurredAt: today,
-                        events,
                     }
                 ],
             }
