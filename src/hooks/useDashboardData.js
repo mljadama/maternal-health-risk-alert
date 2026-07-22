@@ -2,7 +2,7 @@
 // Aggregated stats for the dashboard from DHIS2 v42
 
 import { useDataQuery } from '@dhis2/app-runtime'
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { assessRisk, RISK_LEVELS } from '../services/riskEngine.js'
 import { useDhis2Config } from './useDhis2Config.js'
 import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
@@ -97,8 +97,9 @@ export function useDashboardData() {
             params: {
                 program: config.program.id,
                 ...trackerQueryParams,
-                fields:  'trackedEntity,attributes,enrollments[enrollment,enrolledAt,orgUnit]',
-                paging:  false,
+                fields:  'trackedEntity,trackedEntityInstance,id,attributes,enrollments[enrollment,enrolledAt,orgUnit]',
+                page: 1,
+                pageSize: 500,
             },
         },
     }), [config.program.id, trackerQueryParams])
@@ -110,27 +111,39 @@ export function useDashboardData() {
                 program:      config.program.id,
                 programStage: config.programStage.id,
                 ...trackerQueryParams,
-                fields:       'event,trackedEntity,occurredAt,dataValues',
-                paging:       false,
+                fields:       'event,trackedEntity,trackedEntityInstance,tei,occurredAt,dataValues',
+                page: 1,
+                pageSize: 500,
             },
         },
     }), [config.program.id, config.programStage.id, trackerQueryParams])
 
-    const { data: pData, loading: pl, error: pe } = useDataQuery(PATIENTS_QUERY, { lazy: shouldPauseQueries })
-    const { data: eData, loading: el, error: ee } = useDataQuery(EVENTS_QUERY, { lazy: shouldPauseQueries })
+    const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: true })
+    const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: true })
+
+    useEffect(() => {
+        if (!shouldPauseQueries) {
+            rp()
+            re()
+        }
+    }, [shouldPauseQueries, rp, re])
 
     const loading = pl || el || configLoading || meLoading
     const error   = configError || meError || pe || ee
 
     const stats = useMemo(() => {
-        if (!pData || !eData) return null
+        if (!pData) return null
 
-        const teis   = pData.patients?.trackedEntities ?? []
-        const events = eData.events?.events ?? []
+        // Support various DHIS2 versions of payload wrapping
+        const teis = pData.patients?.instances || pData.patients?.trackedEntities || pData.patients || []
+        const events = eData?.events?.instances || eData?.events?.events || eData?.events || []
+        const teisArr = Array.isArray(teis) ? teis : []
+        const eventsArr = Array.isArray(events) ? events : []
 
         const byTEI = {}
-        events.forEach(ev => {
-            const id = ev.trackedEntity
+        eventsArr.forEach(ev => {
+            const id = ev.trackedEntity || ev.trackedEntityInstance || ev.tei || ev.id
+            if (!id) return
             if (!byTEI[id]) byTEI[id] = []
             byTEI[id].push(ev)
         })
@@ -138,8 +151,8 @@ export function useDashboardData() {
             a.sort((x, y) => new Date(y.occurredAt) - new Date(x.occurredAt))
         )
 
-        const patients = teis.map(tei => {
-            const id     = tei.trackedEntity
+        const patients = teisArr.map(tei => {
+            const id     = tei.trackedEntity || tei.trackedEntityInstance || tei.id
             const visits = byTEI[id] ?? []
             const latest = visits[0] ?? null
             const first  = visits[visits.length - 1] ?? null
@@ -188,22 +201,22 @@ export function useDashboardData() {
             highRisk,
             moderate,
             normal,
-            totalVisits:      events.length,
-            avgVisits:        total > 0 ? (events.length / total).toFixed(1) : '0',
+            totalVisits:      eventsArr.length,
+            avgVisits:        total > 0 ? (eventsArr.length / total).toFixed(1) : '0',
             completionRate:   completion,
             riskDistribution: [
                 { name: 'High risk', value: highRisk, color: '#dc2626' },
                 { name: 'Moderate',  value: moderate, color: '#d97706' },
                 { name: 'Normal',    value: normal,   color: '#16a34a' },
             ],
-            monthlyTrend:     buildMonthlyTrend(events, dataElements),
+            monthlyTrend:     buildMonthlyTrend(eventsArr, dataElements),
             completionStages: buildCompletion(patients, byTEI),
             alertPatients:    patients
                 .filter(p => p.assessment.level !== RISK_LEVELS.NORMAL)
                 .sort((a, b) => b.assessment.score - a.assessment.score)
                 .slice(0, 5),
         }
-    }, [pData, eData])
+    }, [pData, eData, config])
 
     return { stats, loading, error }
-}
+}
