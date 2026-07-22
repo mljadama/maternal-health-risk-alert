@@ -24,7 +24,7 @@ import styles from './Configuration.module.css'
 
 const FIELD_GROUPS = [
   {
-    title: 'Program',
+    title: 'Program metadata',
     fields: [
       ['program.id', 'Program UID'],
       ['program.name', 'Program name'],
@@ -59,6 +59,47 @@ const FIELD_GROUPS = [
       ['dataElements.nurseNotes', 'Nurse notes UID'],
       ['dataElements.dangerSigns', 'Danger signs UID'],
       ['dataElements.nextVisitDate', 'Next visit date UID'],
+    ],
+  },
+  {
+    title: 'Clinical risk scoring weights',
+    fields: [
+      ['ruleScores.BP_SEVERE_HYPERTENSION', 'Severe hypertension score'],
+      ['ruleScores.BP_HYPERTENSION', 'Hypertension score'],
+      ['ruleScores.HB_SEVERE_ANAEMIA', 'Severe anaemia score'],
+      ['ruleScores.HB_MODERATE_ANAEMIA', 'Moderate anaemia score'],
+      ['ruleScores.HB_MILD_ANAEMIA', 'Mild anaemia score'],
+      ['ruleScores.MALARIA_POSITIVE', 'Active malaria score'],
+      ['ruleScores.MALARIA_HISTORY', 'Malaria history score'],
+      ['ruleScores.DANGER_SIGNS', 'Danger signs score (per sign)'],
+      ['ruleScores.AGE_TOO_YOUNG', 'Adolescent age score'],
+      ['ruleScores.AGE_TOO_OLD', 'Advanced age score'],
+      ['ruleScores.LATE_FIRST_VISIT', 'Late booking score'],
+      ['ruleScores.INSUFFICIENT_VISITS', 'Insufficient visits score'],
+    ],
+  },
+  {
+    title: 'Clinical decision thresholds & cutoffs',
+    fields: [
+      ['thresholds.SCORE_HIGH', 'High risk score cutoff (>= score)'],
+      ['thresholds.SCORE_MODERATE', 'Moderate risk score cutoff (>= score)'],
+      ['thresholds.BP_SYSTOLIC_SEVERE', 'Severe systolic BP cutoff (mmHg)'],
+      ['thresholds.BP_DIASTOLIC_SEVERE', 'Severe diastolic BP cutoff (mmHg)'],
+      ['thresholds.BP_SYSTOLIC_HIGH', 'High systolic BP cutoff (mmHg)'],
+      ['thresholds.BP_DIASTOLIC_HIGH', 'High diastolic BP cutoff (mmHg)'],
+      ['thresholds.HB_SEVERE_ANAEMIA', 'Severe anaemia cutoff (g/dL)'],
+      ['thresholds.HB_MODERATE_ANAEMIA', 'Moderate anaemia cutoff (g/dL)'],
+      ['thresholds.HB_NORMAL_MIN', 'Mild anaemia cutoff (g/dL)'],
+      ['thresholds.AGE_MIN', 'Adolescent age cutoff (< years)'],
+      ['thresholds.AGE_MAX', 'Advanced age cutoff (> years)'],
+    ],
+  },
+  {
+    title: 'Risk alert UI colors',
+    fields: [
+      ['riskColors.high', 'High Risk badge color'],
+      ['riskColors.moderate', 'Moderate Risk badge color'],
+      ['riskColors.normal', 'Normal Risk badge color'],
     ],
   },
 ]
@@ -123,6 +164,9 @@ export default function Configuration() {
     { label: 'Tracked entity type', value: draft.trackedEntityType?.id || 'Not set' },
     { label: 'Attribute mappings', value: Object.keys(draft.attributes || {}).length },
     { label: 'Data element mappings', value: Object.keys(draft.dataElements || {}).length },
+    { label: 'Clinical risk score rules', value: Object.keys(draft.ruleScores || {}).length },
+    { label: 'Clinical decision cutoffs', value: Object.keys(draft.thresholds || {}).length },
+    { label: 'Risk alert colors', value: `High: ${draft.riskColors?.high || 'default'}, Mod: ${draft.riskColors?.moderate || 'default'}` },
   ], [draft, validation.isValid])
 
   function handleChange(path) {

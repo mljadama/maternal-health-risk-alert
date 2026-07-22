@@ -6,6 +6,7 @@ import {
 } from 'recharts'
 import { usePatients } from '../hooks/usePatients.js'
 import { useVisits } from '../hooks/useVisits.js'
+import { useDhis2Config } from '../hooks/useDhis2Config.js'
 import { assessRisk, getRiskLabel } from '../services/riskEngine.js'
 import { RISK_COLORS } from '../config/dhis2.js'
 import styles from './DataPage.module.css'
@@ -19,6 +20,7 @@ function levelClass(level) {
 export default function PatientDetail() {
   const { teiUid } = useParams()
   const navigate = useNavigate()
+  const { config } = useDhis2Config()
 
   const { patients, loading: pLoading, error: pError } = usePatients()
   const { visits, chartData, loading: vLoading, error: vError } = useVisits(teiUid)
@@ -62,7 +64,8 @@ export default function PatientDetail() {
       latestHaemoglobin: latestVisit?.haemoglobin,
       latestMalariaResult: latestVisit?.malariaResult,
       dangerSigns: latestVisit?.dangerSigns ?? [],
-    }
+    },
+    { thresholds: config.thresholds, scores: config.ruleScores }
   )
 
   const cfg = RISK_COLORS[assessment.level]

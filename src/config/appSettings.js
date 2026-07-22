@@ -5,6 +5,7 @@ import {
   COMPLICATION_OPTIONS,
   RISK_COLORS,
 } from './dhis2.js'
+import { RULE_SCORES } from './riskRules.js'
 
 export const APP_SETTINGS_NAMESPACE = 'maternal_health_risk_alert'
 export const APP_SETTINGS_KEY = 'config'
@@ -73,6 +74,7 @@ export const DEFAULT_APP_SETTINGS = {
     nextVisitDate: '',
   },
   thresholds: { ...THRESHOLDS },
+  ruleScores: { ...RULE_SCORES },
   malariaResults: [...MALARIA_RESULTS],
   dangerSignOptions: [...DANGER_SIGN_OPTIONS],
   complicationOptions: [...COMPLICATION_OPTIONS],

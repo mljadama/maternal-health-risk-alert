@@ -70,19 +70,24 @@ export const RULE_IDS = {
 // =============================================================================
 
 // ── Rule 1: Age ───────────────────────────────────────────────────────────────
-function ruleAge(age) {
+function ruleAge(age, t = THRESHOLDS, sMap = {}) {
   if (age == null) return null
-  if (age < THRESHOLDS.AGE_MIN) return {
+  const minAge = t.AGE_MIN ?? THRESHOLDS.AGE_MIN
+  const maxAge = t.AGE_MAX ?? THRESHOLDS.AGE_MAX
+  const youngScore = sMap.AGE_TOO_YOUNG ?? 25
+  const oldScore = sMap.AGE_TOO_OLD ?? 20
+
+  if (age < minAge) return {
     id:             RULE_IDS.AGE_TOO_YOUNG,
-    message:        `Adolescent pregnancy — age ${age} (under ${THRESHOLDS.AGE_MIN})`,
-    score:          25,
+    message:        `Adolescent pregnancy — age ${age} (under ${minAge})`,
+    score:          youngScore,
     severity:       'high',
     recommendation: 'Refer to specialist ANC clinic. Screen for pre-eclampsia and anaemia at every visit.',
   }
-  if (age > THRESHOLDS.AGE_MAX) return {
+  if (age > maxAge) return {
     id:             RULE_IDS.AGE_TOO_OLD,
-    message:        `Advanced maternal age — age ${age} (over ${THRESHOLDS.AGE_MAX})`,
-    score:          20,
+    message:        `Advanced maternal age — age ${age} (over ${maxAge})`,
+    score:          oldScore,
     severity:       'moderate',
     recommendation: 'Offer chromosomal screening. Monitor for gestational hypertension and diabetes.',
   }
@@ -90,20 +95,28 @@ function ruleAge(age) {
 }
 
 // ── Rule 2: Blood pressure ────────────────────────────────────────────────────
-function ruleBloodPressure(sys, dia) {
+function ruleBloodPressure(sys, dia, t = THRESHOLDS, sMap = {}) {
   if (sys == null || dia == null) return null
   const s = Number(sys), d = Number(dia)
-  if (s >= THRESHOLDS.BP_SYSTOLIC_SEVERE || d >= THRESHOLDS.BP_DIASTOLIC_SEVERE) return {
+  const sysSevere = t.BP_SYSTOLIC_SEVERE ?? THRESHOLDS.BP_SYSTOLIC_SEVERE
+  const diaSevere = t.BP_DIASTOLIC_SEVERE ?? THRESHOLDS.BP_DIASTOLIC_SEVERE
+  const sysHigh = t.BP_SYSTOLIC_HIGH ?? THRESHOLDS.BP_SYSTOLIC_HIGH
+  const diaHigh = t.BP_DIASTOLIC_HIGH ?? THRESHOLDS.BP_DIASTOLIC_HIGH
+
+  const severeScore = sMap.BP_SEVERE_HYPERTENSION ?? 50
+  const highScore = sMap.BP_HYPERTENSION ?? 35
+
+  if (s >= sysSevere || d >= diaSevere) return {
     id:             RULE_IDS.BP_SEVERE_HYPERTENSION,
-    message:        `Severe hypertension — ${s}/${d} mmHg (threshold >= ${THRESHOLDS.BP_SYSTOLIC_SEVERE}/${THRESHOLDS.BP_DIASTOLIC_SEVERE})`,
-    score:          50,
+    message:        `Severe hypertension — ${s}/${d} mmHg (threshold >= ${sysSevere}/${diaSevere})`,
+    score:          severeScore,
     severity:       'high',
     recommendation: 'URGENT: Admit immediately. Start antihypertensive therapy. Rule out pre-eclampsia.',
   }
-  if (s >= THRESHOLDS.BP_SYSTOLIC_HIGH || d >= THRESHOLDS.BP_DIASTOLIC_HIGH) return {
+  if (s >= sysHigh || d >= diaHigh) return {
     id:             RULE_IDS.BP_HYPERTENSION,
-    message:        `Hypertension — ${s}/${d} mmHg (threshold >= ${THRESHOLDS.BP_SYSTOLIC_HIGH}/${THRESHOLDS.BP_DIASTOLIC_HIGH})`,
-    score:          35,
+    message:        `Hypertension — ${s}/${d} mmHg (threshold >= ${sysHigh}/${diaHigh})`,
+    score:          highScore,
     severity:       'high',
     recommendation: 'Repeat BP in 15 min. Order urine protein. Refer to doctor if confirmed.',
   }
@@ -111,27 +124,35 @@ function ruleBloodPressure(sys, dia) {
 }
 
 // ── Rule 3: Haemoglobin ───────────────────────────────────────────────────────
-function ruleHaemoglobin(hb) {
+function ruleHaemoglobin(hb, t = THRESHOLDS, sMap = {}) {
   if (hb == null) return null
   const v = Number(hb)
-  if (v < THRESHOLDS.HB_SEVERE_ANAEMIA) return {
+  const hbSevere = t.HB_SEVERE_ANAEMIA ?? THRESHOLDS.HB_SEVERE_ANAEMIA
+  const hbMod = t.HB_MODERATE_ANAEMIA ?? THRESHOLDS.HB_MODERATE_ANAEMIA
+  const hbNorm = t.HB_NORMAL_MIN ?? THRESHOLDS.HB_NORMAL_MIN
+
+  const severeScore = sMap.HB_SEVERE_ANAEMIA ?? 45
+  const modScore = sMap.HB_MODERATE_ANAEMIA ?? 30
+  const mildScore = sMap.HB_MILD_ANAEMIA ?? 20
+
+  if (v < hbSevere) return {
     id:             RULE_IDS.HB_SEVERE_ANAEMIA,
-    message:        `Severe anaemia — Hb ${v} g/dL (threshold < ${THRESHOLDS.HB_SEVERE_ANAEMIA})`,
-    score:          45,
+    message:        `Severe anaemia — Hb ${v} g/dL (threshold < ${hbSevere})`,
+    score:          severeScore,
     severity:       'high',
     recommendation: 'URGENT: Consider blood transfusion. Admit. Investigate cause (malaria, iron deficiency, sickle cell).',
   }
-  if (v < THRESHOLDS.HB_MODERATE_ANAEMIA) return {
+  if (v < hbMod) return {
     id:             RULE_IDS.HB_MODERATE_ANAEMIA,
-    message:        `Moderate anaemia — Hb ${v} g/dL (threshold < ${THRESHOLDS.HB_MODERATE_ANAEMIA})`,
-    score:          30,
+    message:        `Moderate anaemia — Hb ${v} g/dL (threshold < ${hbMod})`,
+    score:          modScore,
     severity:       'high',
     recommendation: 'Start oral iron therapy. Test for malaria. Recheck Hb in 4 weeks.',
   }
-  if (v < THRESHOLDS.HB_NORMAL_MIN) return {
+  if (v < hbNorm) return {
     id:             RULE_IDS.HB_MILD_ANAEMIA,
-    message:        `Mild anaemia — Hb ${v} g/dL (threshold < ${THRESHOLDS.HB_NORMAL_MIN})`,
-    score:          20,
+    message:        `Mild anaemia — Hb ${v} g/dL (threshold < ${hbNorm})`,
+    score:          mildScore,
     severity:       'moderate',
     recommendation: 'Increase iron and folic acid supplementation. Dietary counselling. Recheck in 6 weeks.',
   }
@@ -139,13 +160,16 @@ function ruleHaemoglobin(hb) {
 }
 
 // ── Rule 4: Malaria ───────────────────────────────────────────────────────────
-function ruleMalaria(currentResult, malariaHistory) {
+function ruleMalaria(currentResult, malariaHistory, t = THRESHOLDS, sMap = {}) {
   const flags = []
+  const posScore = sMap.MALARIA_POSITIVE ?? 40
+  const histScore = sMap.MALARIA_HISTORY ?? 15
+
   if (currentResult && currentResult.toLowerCase().includes('positive'))
     flags.push({
       id:             RULE_IDS.MALARIA_POSITIVE,
       message:        `Active malaria infection — result: ${currentResult}`,
-      score:          40,
+      score:          posScore,
       severity:       'high',
       recommendation: 'Start WHO-approved antimalarial therapy. Avoid artemisinin in first trimester. Monitor foetal wellbeing.',
     })
@@ -153,7 +177,7 @@ function ruleMalaria(currentResult, malariaHistory) {
     flags.push({
       id:             RULE_IDS.MALARIA_HISTORY,
       message:        'Previous malaria infection during this pregnancy',
-      score:          15,
+      score:          histScore,
       severity:       'moderate',
       recommendation: 'Ensure insecticide-treated bed net in use. Monthly RDT at each visit.',
     })
@@ -161,15 +185,18 @@ function ruleMalaria(currentResult, malariaHistory) {
 }
 
 // ── Rule 5: Missed / insufficient ANC visits ──────────────────────────────────
-function ruleMissedVisits(totalVisits, currentWeek, expectedDates, attendedDates) {
+function ruleMissedVisits(totalVisits, currentWeek, expectedDates, attendedDates, t = THRESHOLDS, sMap = {}) {
   const flags = []
+  const minVisits = t.ANC_MINIMUM_VISITS ?? THRESHOLDS.ANC_MINIMUM_VISITS
+  const insuffScore = sMap.INSUFFICIENT_VISITS ?? 25
+  const missedScoreUnit = sMap.MISSED_ANC_VISITS ?? 10
 
   // 5a — fewer than minimum visits approaching term
-  if (currentWeek >= 36 && totalVisits < THRESHOLDS.ANC_MINIMUM_VISITS)
+  if (currentWeek >= 36 && totalVisits < minVisits)
     flags.push({
       id:             RULE_IDS.INSUFFICIENT_VISITS,
-      message:        `Insufficient visits — ${totalVisits} recorded, minimum ${THRESHOLDS.ANC_MINIMUM_VISITS} required by week 36`,
-      score:          25,
+      message:        `Insufficient visits — ${totalVisits} recorded, minimum ${minVisits} required by week 36`,
+      score:          insuffScore,
       severity:       'high',
       recommendation: 'Schedule urgent catch-up visits. Review all overdue screening tests.',
     })
@@ -185,7 +212,7 @@ function ruleMissedVisits(totalVisits, currentWeek, expectedDates, attendedDates
       flags.push({
         id:             RULE_IDS.MISSED_ANC_VISITS,
         message:        `${missed.length} scheduled ANC visit${missed.length > 1 ? 's' : ''} missed (${missed.join(', ')})`,
-        score:          missed.length * 10,
+        score:          missed.length * missedScoreUnit,
         severity:       missed.length >= 2 ? 'high' : 'moderate',
         recommendation: 'Contact patient immediately. Arrange home visit if unreachable.',
       })
@@ -194,55 +221,67 @@ function ruleMissedVisits(totalVisits, currentWeek, expectedDates, attendedDates
 }
 
 // ── Rule 6: Late first visit (after first trimester) ─────────────────────────
-function ruleLateFirstVisit(firstVisitWeek) {
-  if (firstVisitWeek == null || firstVisitWeek <= THRESHOLDS.FIRST_TRIMESTER_WEEKS) return null
+function ruleLateFirstVisit(firstVisitWeek, t = THRESHOLDS, sMap = {}) {
+  const firstTriWeeks = t.FIRST_TRIMESTER_WEEKS ?? THRESHOLDS.FIRST_TRIMESTER_WEEKS
+  if (firstVisitWeek == null || firstVisitWeek <= firstTriWeeks) return null
   const inThird = firstVisitWeek > 26
+  const lateScore = sMap.LATE_FIRST_VISIT ?? 20
+  const scoreVal = inThird ? lateScore + 10 : lateScore
+
   return {
     id:             RULE_IDS.LATE_FIRST_VISIT,
-    message:        `Late ANC booking — first visit at week ${firstVisitWeek} (after first trimester, week ${THRESHOLDS.FIRST_TRIMESTER_WEEKS})`,
-    score:          inThird ? 30 : 20,
+    message:        `Late ANC booking — first visit at week ${firstVisitWeek} (after first trimester, week ${firstTriWeeks})`,
+    score:          scoreVal,
     severity:       inThird ? 'high' : 'moderate',
     recommendation: `First visit in ${inThird ? 'third' : 'second'} trimester. Expedite all first-trimester screening tests immediately.`,
   }
 }
 
 // ── Rule 7: Danger signs ──────────────────────────────────────────────────────
-function ruleDangerSigns(dangerSigns) {
+function ruleDangerSigns(dangerSigns, t = THRESHOLDS, sMap = {}) {
   if (!dangerSigns) return null
   const signs = Array.isArray(dangerSigns)
     ? dangerSigns.filter(Boolean)
     : dangerSigns.split(',').map(s => s.trim()).filter(Boolean)
   if (signs.length === 0) return null
+  const signScoreUnit = sMap.DANGER_SIGNS ?? 25
+
   return {
     id:             RULE_IDS.DANGER_SIGNS,
     message:        `${signs.length} danger sign${signs.length > 1 ? 's' : ''} reported: ${signs.join('; ')}`,
-    score:          signs.length * 25,
+    score:          signs.length * signScoreUnit,
     severity:       'high',
     recommendation: 'URGENT: Refer to hospital immediately. Do not discharge without physician review.',
   }
 }
 
 // ── Rule 8: Grand multiparity ─────────────────────────────────────────────────
-function ruleGrandMultipara(parity) {
-  if (parity == null || Number(parity) < THRESHOLDS.GRAND_MULTIPARA_THRESHOLD) return null
+function ruleGrandMultipara(parity, t = THRESHOLDS, sMap = {}) {
+  const grandThresh = t.GRAND_MULTIPARA_THRESHOLD ?? THRESHOLDS.GRAND_MULTIPARA_THRESHOLD
+  if (parity == null || Number(parity) < grandThresh) return null
+  const scoreVal = sMap.GRAND_MULTIPARA ?? 15
+
   return {
     id:             RULE_IDS.GRAND_MULTIPARA,
-    message:        `Grand multiparity — parity ${parity} (>= ${THRESHOLDS.GRAND_MULTIPARA_THRESHOLD})`,
-    score:          15,
+    message:        `Grand multiparity — parity ${parity} (>= ${grandThresh})`,
+    score:          scoreVal,
     severity:       'moderate',
     recommendation: 'Increased risk of uterine atony and PPH. Plan delivery at facility with blood bank.',
   }
 }
 
 // ── Rule 9: Previous complications ───────────────────────────────────────────
-function rulePreviousComplications(comp) {
+function rulePreviousComplications(comp, t = THRESHOLDS, sMap = {}) {
   if (!comp || comp.toLowerCase() === 'none') return null
   const SEVERE = ['pre-eclampsia','eclampsia','stillbirth','placenta previa','postpartum haemorrhage']
   const isSevere = SEVERE.some(c => comp.toLowerCase().includes(c))
+  const baseScore = sMap.PREVIOUS_COMPLICATIONS ?? 15
+  const scoreVal = isSevere ? baseScore + 10 : baseScore
+
   return {
     id:             RULE_IDS.PREVIOUS_COMPLICATIONS,
     message:        `Previous obstetric complication: ${comp}`,
-    score:          isSevere ? 25 : 15,
+    score:          scoreVal,
     severity:       isSevere ? 'high' : 'moderate',
     recommendation: isSevere
       ? 'Refer to obstetrician. High-risk pregnancy management plan required.'
@@ -286,7 +325,7 @@ function rulePreviousComplications(comp) {
  *   breakdown:       Object
  * }}
  */
-export function assessRisk(patient = {}, visits = {}) {
+export function assessRisk(patient = {}, visits = {}, options = {}) {
   const { age, parity, previousComplications } = patient
   const {
     totalVisits        = 0,
@@ -302,25 +341,31 @@ export function assessRisk(patient = {}, visits = {}) {
     attendedVisitDates = [],
   } = visits
 
+  const t = { ...THRESHOLDS, ...(options.thresholds || options.customThresholds) }
+  const sMap = { ...(options.scores || options.ruleScores || options.customScores) }
+
   // Collect every triggered rule
   const triggered = []
   const add  = r  => { if (r)              triggered.push(r) }
   const addA = rs => { if (Array.isArray(rs)) triggered.push(...rs) }
 
-  add(ruleAge(age))
-  add(ruleBloodPressure(latestBpSystolic, latestBpDiastolic))
-  add(ruleHaemoglobin(latestHaemoglobin))
-  addA(ruleMalaria(latestMalariaResult, malariaHistory))
-  addA(ruleMissedVisits(totalVisits, currentWeek, expectedVisitDates, attendedVisitDates))
-  add(ruleLateFirstVisit(firstVisitWeek))
-  add(ruleDangerSigns(dangerSigns))
-  add(ruleGrandMultipara(parity))
-  add(rulePreviousComplications(previousComplications))
+  add(ruleAge(age, t, sMap))
+  add(ruleBloodPressure(latestBpSystolic, latestBpDiastolic, t, sMap))
+  add(ruleHaemoglobin(latestHaemoglobin, t, sMap))
+  addA(ruleMalaria(latestMalariaResult, malariaHistory, t, sMap))
+  addA(ruleMissedVisits(totalVisits, currentWeek, expectedVisitDates, attendedVisitDates, t, sMap))
+  add(ruleLateFirstVisit(firstVisitWeek, t, sMap))
+  add(ruleDangerSigns(dangerSigns, t, sMap))
+  add(ruleGrandMultipara(parity, t, sMap))
+  add(rulePreviousComplications(previousComplications, t, sMap))
 
   // Score and level
+  const scoreHigh = t.SCORE_HIGH ?? THRESHOLDS.SCORE_HIGH
+  const scoreMod = t.SCORE_MODERATE ?? THRESHOLDS.SCORE_MODERATE
+
   const score = triggered.reduce((s, r) => s + r.score, 0)
-  const level = score >= THRESHOLDS.SCORE_HIGH     ? RISK_LEVELS.HIGH
-              : score >= THRESHOLDS.SCORE_MODERATE ? RISK_LEVELS.MODERATE
+  const level = score >= scoreHigh     ? RISK_LEVELS.HIGH
+              : score >= scoreMod      ? RISK_LEVELS.MODERATE
               : RISK_LEVELS.NORMAL
 
   // Outputs
