@@ -102,14 +102,11 @@ export default function RecordVisit() {
     if (preferredOrgUnitId) {
       return {
         orgUnit: preferredOrgUnitId,
-        ou: preferredOrgUnitId,
         orgUnitMode: 'DESCENDANTS',
-        ouMode: 'DESCENDANTS',
       }
     }
     return {
       orgUnitMode: 'ACCESSIBLE',
-      ouMode: 'ACCESSIBLE',
     }
   }, [preferredOrgUnitId])
 

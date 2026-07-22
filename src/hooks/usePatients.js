@@ -53,14 +53,11 @@ export function usePatients() {
         if (preferredOrgUnitId) {
             return {
                 orgUnit: preferredOrgUnitId,
-                ou: preferredOrgUnitId,
                 orgUnitMode: 'DESCENDANTS',
-                ouMode: 'DESCENDANTS',
             }
         }
         return {
             orgUnitMode: 'ACCESSIBLE',
-            ouMode: 'ACCESSIBLE',
         }
     }, [preferredOrgUnitId])
 
@@ -73,7 +70,8 @@ export function usePatients() {
                 program: config.program.id,
                 ...trackerQueryParams,
                 fields:  'trackedEntity,orgUnit,attributes,enrollments[enrollment,enrolledAt,orgUnit,orgUnitName,status]',
-                paging:  false,
+                page:    1,
+                pageSize: 500,
             },
         },
     }), [config.program.id, trackerQueryParams])
@@ -85,7 +83,9 @@ export function usePatients() {
                 program:  config.program.id,
                 ...trackerQueryParams,
                 fields:   'event,trackedEntity,occurredAt,orgUnit,orgUnitName,dataValues',
-                paging:   false,
+                page:     1,
+                pageSize: 500,
+                order:    'occurredAt:desc',
             },
         },
     }), [config.program.id, trackerQueryParams])
@@ -95,6 +95,7 @@ export function usePatients() {
             resource: 'organisationUnits',
             params: {
                 fields:  'id,displayName',
+                userOnly: true,
                 paging:  false,
             },
         },
@@ -119,8 +120,12 @@ export function usePatients() {
 
     const ouMap = useMemo(() => {
         const map = {}
-        ouData?.orgUnits?.organisationUnits?.forEach(ou => {
-            map[ou.id] = ou.displayName
+        // DHIS2 wraps the array directly under the resource key (ouData.orgUnits is the array)
+        const list = Array.isArray(ouData?.orgUnits)
+            ? ouData.orgUnits
+            : (ouData?.orgUnits?.organisationUnits ?? [])
+        list.forEach(ou => {
+            if (ou?.id) map[ou.id] = ou.displayName
         })
         return map
     }, [ouData])

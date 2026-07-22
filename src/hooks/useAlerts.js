@@ -35,14 +35,11 @@ export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODER
         if (preferredOrgUnitId) {
             return {
                 orgUnit: preferredOrgUnitId,
-                ou: preferredOrgUnitId,
                 orgUnitMode: 'DESCENDANTS',
-                ouMode: 'DESCENDANTS',
             }
         }
         return {
             orgUnitMode: 'ACCESSIBLE',
-            ouMode: 'ACCESSIBLE',
         }
     }, [preferredOrgUnitId])
 
@@ -96,8 +93,11 @@ export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODER
 
     const ouMap = useMemo(() => {
         const map = {}
-        ouData?.orgUnits?.organisationUnits?.forEach(ou => {
-            map[ou.id] = ou.displayName
+        const list = Array.isArray(ouData?.orgUnits)
+            ? ouData.orgUnits
+            : (ouData?.orgUnits?.organisationUnits ?? [])
+        list.forEach(ou => {
+            if (ou?.id) map[ou.id] = ou.displayName
         })
         return map
     }, [ouData])
