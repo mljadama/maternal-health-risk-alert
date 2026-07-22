@@ -283,14 +283,32 @@ Write-Host "Using user '$USER' UID: $ADMIN_UID" -ForegroundColor DarkGray
 # ── Step 1: Organisation Units ────────────────────────────────
 Write-Host "Step 1: Organisation units..." -ForegroundColor Yellow
 
-$gid = GetOrCreateOU "GMB" @{
-    name        = "The Gambia"
-    shortName   = "Gambia"
-    code        = "GMB"
-    openingDate = "1965-02-18"
+function GetRootOrgUnitId {
+    try {
+        $res = Invoke-RestMethod -Uri "$base/organisationUnits?level=1&fields=id,name,code&paging=false" -Headers $headers -MaximumRedirection 5
+        $roots = $res.organisationUnits
+        if ($roots -and $roots.Count -gt 0) {
+            $match = $roots | Where-Object { "$($_.code)" -eq "GMB" -or "$($_.name)" -eq "The Gambia" } | Select-Object -First 1
+            if ($match) { return $match.id }
+            return $roots[0].id
+        }
+    } catch {}
+    return $null
 }
-if (-not $gid) { throw "Root organisation unit was not created successfully." }
-Write-Host "  The Gambia: $gid"
+
+$existingRootId = GetRootOrgUnitId
+if ($existingRootId) {
+    Write-Host "  Using existing root organisation unit: $existingRootId" -ForegroundColor Green
+    $gid = $existingRootId
+} else {
+    $gid = GetOrCreateOU "GMB" @{
+        name        = "The Gambia"
+        shortName   = "Gambia"
+        code        = "GMB"
+        openingDate = "1965-02-18"
+    }
+}
+if (-not $gid) { throw "Root organisation unit was not resolved or created successfully." }
 
 function MakeHospital($name, $short, $code, $date) {
     return GetOrCreateOU $code @{

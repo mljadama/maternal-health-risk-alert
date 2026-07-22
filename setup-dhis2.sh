@@ -311,9 +311,23 @@ echo "Using user '$USER' UID: $ADMIN_UID"
 # Step 1: Organisation units
 echo "Step 1: Organisation units..."
 
-gid=$(get_or_create_ou "GMB" '{"name":"The Gambia","shortName":"Gambia","code":"GMB","openingDate":"1965-02-18"}')
+get_root_ou_id() {
+    local response
+    response=$(curl -sS -G "$BASE/organisationUnits" \
+        -H "$(auth_header)" \
+        --data-urlencode "level=1" \
+        --data-urlencode "fields=id,name,code" \
+        --data-urlencode "paging=false")
+    extract_first_id "$response"
+}
+
+gid=$(get_root_ou_id)
+if [ -n "$gid" ]; then
+    echo "  Using existing root organisation unit: $gid"
+else
+    gid=$(get_or_create_ou "GMB" '{"name":"The Gambia","shortName":"Gambia","code":"GMB","openingDate":"1965-02-18"}')
+fi
 require_uid "root organisation unit" "$gid"
-echo "  The Gambia: $gid"
 
 make_hospital() {
     local name="$1"
