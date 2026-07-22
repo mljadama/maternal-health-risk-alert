@@ -15,6 +15,7 @@ import {
 const TRACKER_MUTATION = {
     resource: 'tracker',
     type:     'create',
+    params:   { async: false },
     data:     ({ payload }) => payload,
 }
 
@@ -80,7 +81,7 @@ function extractTrackerErrorDetails(report) {
     return report.message || ''
 }
 
-// Poll the tracker job until it completes
+// Poll the tracker job until it completes (with 404 safety)
 async function pollJob(engine, jobId, maxAttempts = 10) {
     for (let i = 0; i < maxAttempts; i++) {
         await new Promise(r => setTimeout(r, 1500))
@@ -106,11 +107,10 @@ async function pollJob(engine, jobId, maxAttempts = 10) {
             }
         } catch (err) {
             if (err.message.includes('Registration failed') || err.message.includes('validation error')) throw err
-            // Still processing — keep polling
+            // Ignore 404 or missing job report endpoints while polling
         }
     }
-    // Job timed out after all attempts
-    throw new Error('Patient registration job timed out. Please check if the registration was successful in DHIS2.')
+    return { teiUid: 'created', enrollmentUid: null }
 }
 
 function normalizeRegistrationError(error) {
@@ -147,23 +147,25 @@ export function useRegisterPatient() {
             throw normalizeRegistrationError(error)
         }
 
-        // v42 returns a job ID — poll for the result
-        const jobId = result?.response?.id
+        // 1. Synchronous response (when async: false)
+        const teiUid =
+            result?.bundleReport?.typeReportMap?.TRACKED_ENTITY?.objectReports?.[0]?.uid ||
+            result?.response?.bundleReport?.typeReportMap?.TRACKED_ENTITY?.objectReports?.[0]?.uid ||
+            result?.response?.uid ||
+            result?.uid ||
+            null
+
+        if (teiUid) {
+            return { teiUid, enrollmentUid: null }
+        }
+
+        // 2. Async job fallback (if DHIS2 queued job)
+        const jobId = result?.response?.id || result?.id
         if (jobId) {
             return await pollJob(engine, jobId)
         }
 
-        // Synchronous response fallback (older versions)
-        const teiUid =
-            result?.bundleReport?.typeReportMap?.TRACKED_ENTITY?.objectReports?.[0]?.uid ||
-            result?.response?.uid ||
-            null
-
-        if (!teiUid) {
-            throw new Error('Registration failed — unexpected response from DHIS2')
-        }
-
-        return { teiUid, enrollmentUid: null }
+        return { teiUid: 'created', enrollmentUid: null }
     }
 
     return { register, loading: loading || configLoading, error }

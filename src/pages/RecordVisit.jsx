@@ -30,6 +30,7 @@ const INIT = {
 const TRACKER_MUTATION = {
   resource: 'tracker',
   type: 'create',
+  params: { async: false },
   data: ({ payload }) => payload,
 }
 
@@ -71,6 +72,7 @@ async function pollJob(engine, jobId, maxAttempts = 10) {
       }
     } catch (err) {
       if (err.message.includes('failed') || err.message.includes('validation error')) throw err
+      // Ignore 404 or missing job report endpoints while polling
     }
   }
   return { success: true }
