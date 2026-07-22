@@ -76,9 +76,17 @@ export function useDashboardData() {
 
     const trackerQueryParams = useMemo(() => {
         if (preferredOrgUnitId) {
-            return { ou: preferredOrgUnitId, ouMode: 'DESCENDANTS' }
+            return {
+                orgUnit: preferredOrgUnitId,
+                ou: preferredOrgUnitId,
+                orgUnitMode: 'DESCENDANTS',
+                ouMode: 'DESCENDANTS',
+            }
         }
-        return { ouMode: 'ACCESSIBLE' }
+        return {
+            orgUnitMode: 'ACCESSIBLE',
+            ouMode: 'ACCESSIBLE',
+        }
     }, [preferredOrgUnitId])
 
     const shouldPauseQueries = configLoading || meLoading || Boolean(configError)
@@ -152,7 +160,8 @@ export function useDashboardData() {
                     latestHaemoglobin:   latest ? Number(getDV(latest.dataValues, dataElements.haemoglobin))   : null,
                     latestMalariaResult: latest ? getDV(latest.dataValues, dataElements.malariaTestResult)     : null,
                     dangerSigns:         danger,
-                }
+                },
+                { thresholds: config.thresholds, scores: config.ruleScores }
             )
 
             return {

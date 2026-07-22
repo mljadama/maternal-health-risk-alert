@@ -51,9 +51,17 @@ export function usePatients() {
 
     const trackerQueryParams = useMemo(() => {
         if (preferredOrgUnitId) {
-            return { ou: preferredOrgUnitId, ouMode: 'DESCENDANTS' }
+            return {
+                orgUnit: preferredOrgUnitId,
+                ou: preferredOrgUnitId,
+                orgUnitMode: 'DESCENDANTS',
+                ouMode: 'DESCENDANTS',
+            }
         }
-        return { ouMode: 'ACCESSIBLE' }
+        return {
+            orgUnitMode: 'ACCESSIBLE',
+            ouMode: 'ACCESSIBLE',
+        }
     }, [preferredOrgUnitId])
 
     const shouldPauseQueries = configLoading || meLoading || Boolean(configError)
