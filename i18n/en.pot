@@ -5,8 +5,8 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1)\n"
-"POT-Creation-Date: 2026-04-29T12:34:15.182Z\n"
-"PO-Revision-Date: 2026-04-29T12:34:15.183Z\n"
+"POT-Creation-Date: 2026-07-22T19:44:04.502Z\n"
+"PO-Revision-Date: 2026-07-22T19:44:04.503Z\n"
 
 msgid "Error"
 msgstr "Error"
@@ -28,11 +28,3 @@ msgstr "Value Type"
 
 msgid "Created by"
 msgstr "Created by"
-
-msgctxt "Application title"
-msgid "__MANIFEST_APP_TITLE"
-msgstr "Maternal Health Risk Alert"
-
-msgctxt "Application description"
-msgid "__MANIFEST_APP_DESCRIPTION"
-msgstr "Automated antenatal care risk assessment and patient tracking"
