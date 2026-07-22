@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePatients } from '../hooks/usePatients.js'
 import { getRiskLabel } from '../services/riskEngine.js'
@@ -14,9 +14,6 @@ function levelClass(level) {
 export default function PatientList() {
   const navigate = useNavigate()
   const { patients, loading, error, refetch } = usePatients()
-
-  // Refetch whenever this page mounts so a newly registered patient appears
-  useEffect(() => { refetch() }, [])
 
   const [search, setSearch] = useState('')
   const [riskFilter, setRiskFilter] = useState('all')

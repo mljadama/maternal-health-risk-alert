@@ -1,6 +1,6 @@
 // src/hooks/usePatients.js
 import { useDataQuery } from '@dhis2/app-runtime'
-import { useMemo, useEffect } from 'react'
+import { useMemo } from 'react'
 import { assessRisk } from '../services/riskEngine.js'
 import { useDhis2Config } from './useDhis2Config.js'
 import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
@@ -101,18 +101,10 @@ export function usePatients() {
         },
     }), [])
 
-    const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: true })
-    const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: true })
-    const { data: ouData, loading: ol, refetch: ro } = useDataQuery(ORG_UNITS_QUERY, { lazy: true })
+    const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: shouldPauseQueries })
+    const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: shouldPauseQueries })
+    const { data: ouData, loading: ol, refetch: ro } = useDataQuery(ORG_UNITS_QUERY, { lazy: configLoading || meLoading })
 
-    // Trigger all three queries once config and me are both ready
-    useEffect(() => {
-        if (!shouldPauseQueries) {
-            rp()
-            re()
-            ro()
-        }
-    }, [shouldPauseQueries])
 
     const loading = pl || el || ol || configLoading || meLoading
     const queryError = normalizeQueryError(meError || pe || ee)
@@ -222,6 +214,7 @@ export function usePatients() {
         patients,
         loading,
         error,
-        refetch: () => { rp(); re(); ro() },
+        configReady: !shouldPauseQueries,
+        refetch: () => { if (!shouldPauseQueries) { rp(); re(); ro() } },
     }
 }
