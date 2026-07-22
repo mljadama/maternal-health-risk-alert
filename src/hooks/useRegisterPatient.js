@@ -147,12 +147,19 @@ export function useRegisterPatient() {
             throw normalizeRegistrationError(error)
         }
 
+        const report = result?.response || result
+        if (report?.status === 'ERROR') {
+            const details = extractTrackerErrorDetails(report)
+            const errorMsg = details
+                ? `DHIS2 server validation error: ${details}`
+                : 'Registration failed on DHIS2 server. Please verify patient data and server settings.'
+            throw new Error(errorMsg)
+        }
+
         // 1. Synchronous response (when async: false)
         const teiUid =
-            result?.bundleReport?.typeReportMap?.TRACKED_ENTITY?.objectReports?.[0]?.uid ||
-            result?.response?.bundleReport?.typeReportMap?.TRACKED_ENTITY?.objectReports?.[0]?.uid ||
-            result?.response?.uid ||
-            result?.uid ||
+            report?.bundleReport?.typeReportMap?.TRACKED_ENTITY?.objectReports?.[0]?.uid ||
+            report?.uid ||
             null
 
         if (teiUid) {
@@ -160,7 +167,7 @@ export function useRegisterPatient() {
         }
 
         // 2. Async job fallback (if DHIS2 queued job)
-        const jobId = result?.response?.id || result?.id
+        const jobId = report?.id
         if (jobId) {
             return await pollJob(engine, jobId)
         }
