@@ -13,6 +13,14 @@ describe('appSettings', () => {
     expect(normalized.riskColors.high.main).toBe('#dc2626')
   })
 
+  it('normalizes a hex string saved as a risk colour', () => {
+    const normalized = normalizeAppSettings({
+      riskColors: { high: '#111827' },
+    })
+    expect(normalized.riskColors.high.main).toBe('#111827')
+    expect(normalized.riskColors.high.light).toMatch(/^#/)
+  })
+
   it('detects missing required UID fields in configuration validation', () => {
     const validation = validateAppSettings({})
     expect(validation.isValid).toBe(false)

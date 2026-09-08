@@ -73,6 +73,11 @@ export default function RegisterPatient() {
     setFormError('')
   }
 
+  function blur(field) {
+    const nextErrors = validate({ ...vals }, step)
+    setErrs(prev => ({ ...prev, [field]: nextErrors[field] }))
+  }
+
   function handleNext() {
     if (!configValidation.isValid) {
       setFormError(configErrorMessage)
@@ -148,34 +153,34 @@ export default function RegisterPatient() {
 
               <div className={styles.field}>
                 <label className={styles.label}>Full name</label>
-                <input className={styles.input} value={vals.fullName} onChange={e => change('fullName', e.target.value)} placeholder="e.g. Jane Smith" />
+                <input className={styles.input} value={vals.fullName} onChange={e => change('fullName', e.target.value)} onBlur={() => blur('fullName')} placeholder="e.g. Jane Smith" />
                 {errs.fullName && <div className={styles.error}>{errs.fullName}</div>}
               </div>
 
               <div className={styles.grid2}>
                 <div className={styles.field}>
                   <label className={styles.label}>Age</label>
-                  <input type="number" className={styles.input} value={vals.age} onChange={e => change('age', e.target.value)} min="10" max="60" />
+                  <input type="number" className={styles.input} value={vals.age} onChange={e => change('age', e.target.value)} onBlur={() => blur('age')} min="10" max="60" />
                   {errs.age && <div className={styles.error}>{errs.age}</div>}
                 </div>
 
                 <div className={styles.field}>
                   <label className={styles.label}>Village</label>
-                  <input className={styles.input} value={vals.village} onChange={e => change('village', e.target.value)} placeholder="e.g. Springfield" />
+                  <input className={styles.input} value={vals.village} onChange={e => change('village', e.target.value)} onBlur={() => blur('village')} placeholder="e.g. Springfield" />
                   {errs.village && <div className={styles.error}>{errs.village}</div>}
                 </div>
               </div>
 
               <div className={styles.grid2}>
                 <div className={styles.field}>
-                  <label className={styles.label}>Phone number</label>
-                  <input className={styles.input} value={vals.phoneNumber} onChange={e => change('phoneNumber', e.target.value)} placeholder="+1 555-0123" />
+                  <label className={styles.label}>Phone number (optional)</label>
+                  <input className={styles.input} value={vals.phoneNumber} onChange={e => change('phoneNumber', e.target.value)} onBlur={() => blur('phoneNumber')} placeholder="+220 7000000" />
                   {errs.phoneNumber && <div className={styles.error}>{errs.phoneNumber}</div>}
                 </div>
 
                 <div className={styles.field}>
                   <label className={styles.label}>Health facility</label>
-                  <select className={styles.input} value={vals.orgUnit} onChange={e => change('orgUnit', e.target.value)}>
+                  <select className={styles.input} value={vals.orgUnit} onChange={e => change('orgUnit', e.target.value)} onBlur={() => blur('orgUnit')}>
                     <option value="">Select facility</option>
                     {ouLoading ? (
                       <option value="" disabled>Loading...</option>
@@ -196,14 +201,16 @@ export default function RegisterPatient() {
               <div className={styles.grid2}>
                 <div className={styles.field}>
                   <label className={styles.label}>Gestational age</label>
-                  <input type="number" className={styles.input} value={vals.gestationalAge} onChange={e => change('gestationalAge', e.target.value)} min="1" max="42" />
-                  <div className={styles.hint}>{errs.gestationalAge || 'Weeks since LMP'}</div>
+                  <input type="number" className={styles.input} value={vals.gestationalAge} onChange={e => change('gestationalAge', e.target.value)} onBlur={() => blur('gestationalAge')} min="1" max="42" />
+                  {errs.gestationalAge && <div className={styles.error}>{errs.gestationalAge}</div>}
+                  <div className={styles.hint}>Weeks since LMP</div>
                 </div>
 
                 <div className={styles.field}>
                   <label className={styles.label}>Parity</label>
-                  <input type="number" className={styles.input} value={vals.parity} onChange={e => change('parity', e.target.value)} min="0" max="15" />
-                  <div className={styles.hint}>{errs.parity || 'Number of previous births'}</div>
+                  <input type="number" className={styles.input} value={vals.parity} onChange={e => change('parity', e.target.value)} onBlur={() => blur('parity')} min="0" max="15" />
+                  {errs.parity && <div className={styles.error}>{errs.parity}</div>}
+                  <div className={styles.hint}>Number of previous births</div>
                 </div>
               </div>
 

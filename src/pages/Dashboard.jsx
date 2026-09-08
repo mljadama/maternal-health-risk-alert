@@ -6,7 +6,6 @@ import {
 } from 'recharts'
 import { useDashboardData } from '../hooks/useDashboardData.js'
 import { getRiskLabel } from '../services/riskEngine.js'
-import { RISK_COLORS } from '../config/dhis2.js'
 import RiskDistributionChart from '../charts/RiskDistributionChart.jsx'
 import CompletionBarChart from '../charts/CompletionBarChart.jsx'
 import styles from './DataPage.module.css'

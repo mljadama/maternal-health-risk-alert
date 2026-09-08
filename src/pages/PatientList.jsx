@@ -1,8 +1,9 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePatients } from '../hooks/usePatients.js'
+import { useDhis2Config } from '../hooks/useDhis2Config.js'
 import { getRiskLabel } from '../services/riskEngine.js'
-import { RISK_COLORS } from '../config/dhis2.js'
+import { getConfiguredRiskColors } from '../utils/riskColors.js'
 import styles from './DataPage.module.css'
 
 function levelClass(level) {
@@ -13,7 +14,9 @@ function levelClass(level) {
 
 export default function PatientList() {
   const navigate = useNavigate()
+  const { config } = useDhis2Config()
   const { patients, loading, error, refetch } = usePatients()
+  const colors = getConfiguredRiskColors(config)
 
   useEffect(() => {
     refetch()
@@ -151,7 +154,7 @@ export default function PatientList() {
                 </tr>
               ) : (
                 filtered.map(p => {
-                  const cfg = RISK_COLORS[p.assessment.level]
+                  const cfg = colors[p.assessment.level]
                   return (
                     <tr key={p.teiUid} className={styles.trClickable} onClick={() => navigate(`/patients/${p.teiUid}`)} style={{ borderLeft: `3px solid ${cfg.main}` }}>
                       <td className={styles.td}>

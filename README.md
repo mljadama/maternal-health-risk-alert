@@ -126,14 +126,14 @@ chmod +x setup-dhis2.sh
 ./setup-dhis2.sh
 ```
 
-These scripts detect existing root organisation units (`level=1`) in your DHIS2 server and attach demo health facilities under them.
+These scripts detect existing level-1 organisation units and attach demo clinics under them. They never create an extra country-level root when a hierarchy already exists.
 
 **Option 2: Manual configuration**
 
-1. Find your program's UID in DHIS2 Maintenance → Tracker programs
-2. Open the app's **Configuration** page
-3. Map the Program, Program Stage, Tracked Entity Type, attribute, and data element UIDs
-4. Customize risk score weights, decision thresholds, and alert badge colors if desired
+1. Open the app's **Configuration** page
+2. Select a tracker program from this DHIS2 instance (or paste UIDs)
+3. Map attributes and data elements
+4. Customize risk score weights, decision thresholds, and alert colours
 5. Save the configuration to `dataStore`
 
 ## Testing
@@ -146,8 +146,10 @@ npm test -- --watchAll=false
 
 Tests cover:
 - **`riskEngine.test.js`**: All clinical scoring rules, thresholds, multi-factor calculations, and dynamic weight overrides.
-- **`validationUtils.test.js`**: Form input validators, regex phone checkers, BP systolic vs diastolic rules, and range bounds.
+- **`validationUtils.test.js`**: Form input validators, optional phone numbers, BP systolic vs diastolic rules, and required visit fields.
 - **`appSettings.test.js`**: DHIS2 `dataStore` configuration normalization and UID validation.
+- **`trackerErrors.test.js`**: Distinguishes invalid field values from permission/sharing errors.
+- **`riskColors.test.js`**: Configurable alert colour palettes.
 
 ## Deployment
 

@@ -205,9 +205,9 @@ export function useDashboardData() {
             avgVisits:        total > 0 ? (eventsArr.length / total).toFixed(1) : '0',
             completionRate:   completion,
             riskDistribution: [
-                { name: 'High risk', value: highRisk, color: '#dc2626' },
-                { name: 'Moderate',  value: moderate, color: '#d97706' },
-                { name: 'Normal',    value: normal,   color: '#16a34a' },
+                { name: 'High risk', value: highRisk, color: config.riskColors?.high?.main || '#dc2626' },
+                { name: 'Moderate',  value: moderate, color: config.riskColors?.moderate?.main || '#d97706' },
+                { name: 'Normal',    value: normal,   color: config.riskColors?.normal?.main || '#16a34a' },
             ],
             monthlyTrend:     buildMonthlyTrend(eventsArr, dataElements),
             completionStages: buildCompletion(patients, byTEI),

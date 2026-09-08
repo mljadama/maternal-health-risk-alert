@@ -4,10 +4,9 @@
 // and ANC visit recording.
 // ─────────────────────────────────────────────────────────────
 
-// International and local Gambian phone format validator (+220XXXXXXX or 7-15 digits)
 export function isValidPhoneNumber(phone) {
   if (!phone || typeof phone !== 'string') return false
-  const cleaned = phone.trim().replace(/[\s\-()]/g, '')
+  const cleaned = phone.trim().replace(/[\s\-().]/g, '')
   return /^\+?[0-9]{7,15}$/.test(cleaned)
 }
 
@@ -36,11 +35,8 @@ export function validatePatientForm(values) {
     errors.village = 'Village / Community is required'
   }
 
-  // Phone number
-  if (!values.phoneNumber || !values.phoneNumber.trim()) {
-    errors.phoneNumber = 'Phone number is required'
-  } else if (!isValidPhoneNumber(values.phoneNumber)) {
-    errors.phoneNumber = 'Enter a valid phone number (e.g. +220 7000000 or 7000000)'
+  if (values.phoneNumber && values.phoneNumber.trim() && !isValidPhoneNumber(values.phoneNumber)) {
+    errors.phoneNumber = 'Enter a valid phone number with 7 to 15 digits, optionally starting with +'
   }
 
   // Organisation unit (Facility)
@@ -71,8 +67,26 @@ export function validatePatientForm(values) {
   return errors
 }
 
-export function validateVisitForm(values) {
+export function validateVisitForm(values, { requireClinical = false } = {}) {
   const errors = {}
+
+  if (requireClinical) {
+    if (values.bpSystolic === undefined || values.bpSystolic === '') {
+      errors.bpSystolic = 'Systolic BP is required'
+    }
+    if (values.bpDiastolic === undefined || values.bpDiastolic === '') {
+      errors.bpDiastolic = 'Diastolic BP is required'
+    }
+    if (values.haemoglobin === undefined || values.haemoglobin === '') {
+      errors.haemoglobin = 'Haemoglobin is required'
+    }
+    if (values.weight === undefined || values.weight === '') {
+      errors.weight = 'Weight is required'
+    }
+    if (values.gestationalAge === undefined || values.gestationalAge === '') {
+      errors.gestationalAge = 'Gestational age is required'
+    }
+  }
 
   // Systolic BP
   if (values.bpSystolic !== undefined && values.bpSystolic !== '') {

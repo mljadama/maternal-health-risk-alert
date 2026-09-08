@@ -7,6 +7,7 @@
 
 import { useDataMutation, useDataEngine } from '@dhis2/app-runtime'
 import { useDhis2Config } from './useDhis2Config.js'
+import { formatTrackerError } from '../utils/trackerErrors.js'
 import {
     validateAppSettings,
     buildConfigValidationMessage,
@@ -21,22 +22,30 @@ const TRACKER_MUTATION = {
 
 function buildPayload(formValues, orgUnit, config) {
     const today = new Date().toISOString().split('T')[0]
+    const attributes = [
+        { attribute: config.attributes.fullName, value: String(formValues.fullName) },
+        { attribute: config.attributes.age, value: String(formValues.age) },
+        { attribute: config.attributes.village, value: String(formValues.village) },
+        { attribute: config.attributes.parity, value: String(formValues.parity) },
+        { attribute: config.attributes.previousComplications, value: String(formValues.previousComplications || 'None') },
+    ]
+
+    if (formValues.phoneNumber && String(formValues.phoneNumber).trim()) {
+        attributes.push({
+            attribute: config.attributes.phoneNumber,
+            value: String(formValues.phoneNumber).trim(),
+        })
+    }
+
     return {
         trackedEntities: [
             {
                 trackedEntityType: config.trackedEntityType.id,
                 orgUnit,
-                attributes: [
-                    { attribute: config.attributes.fullName,              value: String(formValues.fullName) },
-                    { attribute: config.attributes.age,                   value: String(formValues.age) },
-                    { attribute: config.attributes.village,               value: String(formValues.village) },
-                    { attribute: config.attributes.phoneNumber,           value: String(formValues.phoneNumber) },
-                    { attribute: config.attributes.parity,                value: String(formValues.parity) },
-                    { attribute: config.attributes.previousComplications, value: String(formValues.previousComplications || 'None') },
-                ],
+                attributes,
                 enrollments: [
                     {
-                        program:    config.program.id,
+                        program: config.program.id,
                         orgUnit,
                         enrolledAt: today,
                         occurredAt: today,
@@ -45,40 +54,6 @@ function buildPayload(formValues, orgUnit, config) {
             }
         ],
     }
-}
-
-function extractTrackerErrorDetails(report) {
-    if (!report) return ''
-
-    const errorMessages = []
-
-    // 1. Validation Report errors
-    if (report.validationReport?.errorReports?.length) {
-        report.validationReport.errorReports.forEach(err => {
-            if (err.message) errorMessages.push(err.message)
-        })
-    }
-
-    // 2. Object reports in bundle report
-    if (report.bundleReport?.typeReportMap) {
-        Object.values(report.bundleReport.typeReportMap).forEach(typeReport => {
-            if (typeReport?.objectReports) {
-                typeReport.objectReports.forEach(objReport => {
-                    if (objReport?.errorReports) {
-                        objReport.errorReports.forEach(err => {
-                            if (err.message) errorMessages.push(err.message)
-                        })
-                    }
-                })
-            }
-        })
-    }
-
-    if (errorMessages.length > 0) {
-        return errorMessages.join(' | ')
-    }
-
-    return report.message || ''
 }
 
 // Poll the tracker job until it completes (with 404 safety)
@@ -99,14 +74,19 @@ async function pollJob(engine, jobId, maxAttempts = 10) {
                 return { teiUid: teiUid || 'created', enrollmentUid: enrUid || 'created' }
             }
             if (report?.status === 'ERROR') {
-                const details = extractTrackerErrorDetails(report)
-                const errorMsg = details
-                    ? `DHIS2 server validation error: ${details}`
-                    : 'Registration failed on DHIS2 server. Please verify patient data and server settings.'
-                throw new Error(errorMsg)
+                throw new Error(
+                    formatTrackerError(
+                        { details: report },
+                        'Registration failed on DHIS2. Please verify patient data and try again.'
+                    )
+                )
             }
         } catch (err) {
-            if (err.message.includes('Registration failed') || err.message.includes('validation error')) throw err
+            if (
+                err.message.includes('Registration failed') ||
+                err.message.includes('not valid') ||
+                err.message.includes('permission')
+            ) throw err
             // Ignore 404 or missing job report endpoints while polling
         }
     }
@@ -114,13 +94,9 @@ async function pollJob(engine, jobId, maxAttempts = 10) {
 }
 
 function normalizeRegistrationError(error) {
-    const message = String(error?.message || '')
-    if (message.includes('(400)') || /\b400\b/.test(message)) {
-        return new Error(
-            'DHIS2 returned 400 while registering the patient. Open Configuration and verify Program, Program stage, Tracked entity type, attribute UIDs, and data element UIDs.'
-        )
-    }
-    return error instanceof Error ? error : new Error('Registration failed due to an unexpected error.')
+    return new Error(
+        formatTrackerError(error, 'Registration failed. Check the entered values and try again.')
+    )
 }
 
 export function useRegisterPatient() {
@@ -149,11 +125,12 @@ export function useRegisterPatient() {
 
         const report = result?.response || result
         if (report?.status === 'ERROR') {
-            const details = extractTrackerErrorDetails(report)
-            const errorMsg = details
-                ? `DHIS2 server validation error: ${details}`
-                : 'Registration failed on DHIS2 server. Please verify patient data and server settings.'
-            throw new Error(errorMsg)
+            throw new Error(
+                formatTrackerError(
+                    { details: report },
+                    'Registration failed on DHIS2. Please verify patient data and try again.'
+                )
+            )
         }
 
         // 1. Synchronous response (when async: false)

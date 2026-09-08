@@ -7,8 +7,9 @@ import {
 import { usePatients } from '../hooks/usePatients.js'
 import { useVisits } from '../hooks/useVisits.js'
 import { useDhis2Config } from '../hooks/useDhis2Config.js'
-import { assessRisk, getRiskLabel } from '../services/riskEngine.js'
-import { RISK_COLORS } from '../config/dhis2.js'
+import { getRiskLabel } from '../services/riskEngine.js'
+import { getConfiguredRiskColors } from '../utils/riskColors.js'
+import { assessConfiguredRisk } from '../utils/assessWithConfig.js'
 import styles from './DataPage.module.css'
 
 function levelClass(level) {
@@ -53,7 +54,8 @@ export default function PatientDetail() {
 
   const latestVisit = visits[visits.length - 1] ?? null
 
-  const assessment = assessRisk(
+  const assessment = assessConfiguredRisk(
+    config,
     { age: patient.age, parity: patient.parity, previousComplications: patient.prevComp },
     {
       totalVisits: visits.length,
@@ -64,11 +66,10 @@ export default function PatientDetail() {
       latestHaemoglobin: latestVisit?.haemoglobin,
       latestMalariaResult: latestVisit?.malariaResult,
       dangerSigns: latestVisit?.dangerSigns ?? [],
-    },
-    { thresholds: config.thresholds, scores: config.ruleScores }
+    }
   )
 
-  const cfg = RISK_COLORS[assessment.level]
+  const cfg = getConfiguredRiskColors(config)[assessment.level]
 
   return (
     <div className={styles.page}>

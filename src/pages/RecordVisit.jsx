@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useDataMutation, useDataQuery, useDataEngine } from '@dhis2/app-runtime'
-import { assessRisk, getRiskLabel } from '../services/riskEngine.js'
+import { getRiskLabel } from '../services/riskEngine.js'
 import { useDhis2Config } from '../hooks/useDhis2Config.js'
 import { useTrackerOrgUnitScope } from '../hooks/useTrackerOrgUnitScope.js'
 import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
 import { validateVisitForm } from '../utils/validationUtils.js'
+import { formatTrackerError } from '../utils/trackerErrors.js'
+import { assessConfiguredRisk } from '../utils/assessWithConfig.js'
 import styles from './FormPage.module.css'
 
 const today = () => new Date().toISOString().split('T')[0]
@@ -79,7 +81,7 @@ async function pollJob(engine, jobId, maxAttempts = 10) {
 }
 
 function validate(v) {
-  const e = validateVisitForm(v)
+  const e = validateVisitForm(v, { requireClinical: true })
   if (!v.visitDate) e.visitDate = 'Visit date is required'
   return e
 }
@@ -168,7 +170,7 @@ export default function RecordVisit() {
 
   const liveRisk = useMemo(() => {
     if (!vals.bpSystolic && !vals.haemoglobin) return null
-    return assessRisk({}, {
+    return assessConfiguredRisk(config, {}, {
       latestBpSystolic: Number(vals.bpSystolic),
       latestBpDiastolic: Number(vals.bpDiastolic),
       latestHaemoglobin: Number(vals.haemoglobin),
@@ -176,7 +178,7 @@ export default function RecordVisit() {
       latestMalariaResult: vals.malariaTestResult,
       dangerSigns: vals.dangerSigns,
     })
-  }, [vals.bpSystolic, vals.bpDiastolic, vals.haemoglobin, vals.gestationalAge, vals.malariaTestResult, vals.dangerSigns])
+  }, [vals.bpSystolic, vals.bpDiastolic, vals.haemoglobin, vals.gestationalAge, vals.malariaTestResult, vals.dangerSigns, config])
 
   async function handleSubmit() {
     const e = validate(vals)
@@ -227,7 +229,7 @@ export default function RecordVisit() {
       const jobId = result?.response?.id
       if (jobId) await pollJob(engine, jobId)
 
-      const risk = assessRisk({}, {
+      const risk = assessConfiguredRisk(config, {}, {
         totalVisits: vals.visitNumber,
         currentWeek: Number(vals.gestationalAge),
         latestBpSystolic: Number(vals.bpSystolic),
@@ -241,7 +243,7 @@ export default function RecordVisit() {
       setSaved(true)
       setFormMessage('ANC visit saved successfully.')
     } catch (err) {
-      setFormMessage('Save failed: ' + err.message)
+      setFormMessage(formatTrackerError(err, 'Save failed. Check the entered values and try again.'))
     } finally {
       setLoadingText(false)
     }

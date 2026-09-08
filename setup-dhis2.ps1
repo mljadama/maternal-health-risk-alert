@@ -285,27 +285,32 @@ Write-Host "Step 1: Organisation units..." -ForegroundColor Yellow
 
 function GetRootOrgUnitId {
     try {
-        $res = Invoke-RestMethod -Uri "$base/organisationUnits?level=1&fields=id,name,code&paging=false" -Headers $headers -MaximumRedirection 5
+        $encoded = [System.Uri]::EscapeDataString("level:eq:1")
+        $res = Invoke-RestMethod -Uri "$base/organisationUnits?filter=$encoded&fields=id,name,level&paging=false" -Headers $headers -MaximumRedirection 5
         $roots = $res.organisationUnits
-        if ($roots -and $roots.Count -gt 0) {
-            $match = $roots | Where-Object { "$($_.code)" -eq "GMB" -or "$($_.name)" -eq "The Gambia" } | Select-Object -First 1
-            if ($match) { return $match.id }
-            return $roots[0].id
+        if ($roots) {
+            $first = @($roots) | Select-Object -First 1
+            if ($first -and $first.id) { return $first.id }
         }
+    } catch {}
+    try {
+        $res = Invoke-RestMethod -Uri "$base/organisationUnits?fields=id&pageSize=1" -Headers $headers -MaximumRedirection 5
+        $first = @($res.organisationUnits) | Select-Object -First 1
+        if ($first -and $first.id) { return $first.id }
     } catch {}
     return $null
 }
 
 $existingRootId = GetRootOrgUnitId
 if ($existingRootId) {
-    Write-Host "  Using existing root organisation unit: $existingRootId" -ForegroundColor Green
+    Write-Host "  Using existing organisation unit as parent (no extra root created): $existingRootId" -ForegroundColor Green
     $gid = $existingRootId
 } else {
-    $gid = GetOrCreateOU "GMB" @{
-        name        = "The Gambia"
-        shortName   = "Gambia"
-        code        = "GMB"
-        openingDate = "1965-02-18"
+    $gid = GetOrCreateOU "MHRA_ROOT" @{
+        name        = "ANC Demo"
+        shortName   = "ANC Demo"
+        code        = "MHRA_ROOT"
+        openingDate = "2000-01-01"
     }
 }
 if (-not $gid) { throw "Root organisation unit was not resolved or created successfully." }
@@ -320,21 +325,13 @@ function MakeHospital($name, $short, $code, $date) {
     }
 }
 
-$h1 = MakeHospital "Serrekunda General Hospital"            "Serrekunda GH"  "GMB001" "1975-01-01"
-$h2 = MakeHospital "Brikama Health Centre"                  "Brikama HC"     "GMB002" "1980-01-01"
-$h3 = MakeHospital "Royal Victoria Teaching Hospital"       "RVTH"           "GMB003" "1923-01-01"
-$h4 = MakeHospital "Edward Francis Small Teaching Hospital" "EFSTH"          "GMB004" "1923-01-01"
-$h5 = MakeHospital "Farafenni Hospital"                     "Farafenni Hosp" "GMB005" "1966-01-01"
-$h6 = MakeHospital "Bundung MCH Hospital"                   "Bundung MCH"    "GMB006" "1989-01-01"
+$h1 = MakeHospital "ANC Demo Clinic 1" "ANC Clinic 1" "MHRA01" "2000-01-01"
+$h2 = MakeHospital "ANC Demo Clinic 2" "ANC Clinic 2" "MHRA02" "2000-01-01"
 
-Write-Host "  Serrekunda GH:  $h1"
-Write-Host "  Brikama HC:     $h2"
-Write-Host "  RVTH:           $h3"
-Write-Host "  EFSTH:          $h4"
-Write-Host "  Farafenni:      $h5"
-Write-Host "  Bundung MCH:    $h6"
+Write-Host "  ANC Demo Clinic 1: $h1"
+Write-Host "  ANC Demo Clinic 2: $h2"
 
-$allOU = @($gid, $h1, $h2, $h3, $h4, $h5, $h6)
+$allOU = @($gid, $h1, $h2)
 foreach ($uid in $allOU) {
     AssignUserOrgUnitScopes $ADMIN_UID $uid
 }
@@ -451,8 +448,7 @@ $progUid = GetOrCreateProgram "GMB Antenatal Care" @{
     programType       = "WITH_REGISTRATION"
     trackedEntityType = @{ id = $trackedEntityTypeUid }
     organisationUnits = @(
-        @{ id = $gid }, @{ id = $h1 }, @{ id = $h2 },
-        @{ id = $h3 },  @{ id = $h4 }, @{ id = $h5 }, @{ id = $h6 }
+        @{ id = $gid }, @{ id = $h1 }, @{ id = $h2 }
     )
     programTrackedEntityAttributes = @(
         @{ trackedEntityAttribute = @{ id = $a1 }; mandatory = $true;  displayInList = $true; sortOrder = 1 }
@@ -557,123 +553,7 @@ Write-Host "Step 7: Writing datastore-config.json..." -ForegroundColor Yellow
 $config | Out-File -FilePath "datastore-config.json" -Encoding utf8 -NoNewline
 Write-Host "  datastore-config.json updated" -ForegroundColor Green
 
-# ── Step 8: Write defaultUidConfig.js ─────────────────────────
-Write-Host ""
-Write-Host "Step 8: Writing src/config/defaultUidConfig.js..." -ForegroundColor Yellow
-
-$uidDefaults = @"
-export const DEFAULT_UID_CONFIG = {
-    program: { id: '$progUid', name: 'GMB Antenatal Care' },
-    programStage: { id: '$stageUid', name: 'GMB ANC Visit' },
-    trackedEntityType: { id: '$trackedEntityTypeUid' },
-    attributes: {
-        fullName: '$a1',
-        age: '$a2',
-        village: '$a3',
-        phoneNumber: '$a4',
-        parity: '$a5',
-        previousComplications: '$a6',
-    },
-    dataElements: {
-        bpSystolic: '$d1',
-        bpDiastolic: '$d2',
-        haemoglobin: '$d3',
-        weight: '$d4',
-        gestationalAge: '$d5',
-        visitNumber: '$d6',
-        malariaTestResult: '$d7',
-        ironSupplementation: '$d8',
-        folicAcid: '$d9',
-        nurseNotes: '$d10',
-        dangerSigns: '$d11',
-        nextVisitDate: '$d12',
-    },
-}
-"@
-
-$uidDefaults | Out-File -FilePath "src\config\defaultUidConfig.js" -Encoding utf8 -NoNewline
-Write-Host "  src/config/defaultUidConfig.js updated" -ForegroundColor Green
-
-# ── Step 9: Write dhis2.js ────────────────────────────────────
-Write-Host ""
-Write-Host "Step 9: Writing src/config/dhis2.js..." -ForegroundColor Yellow
-
-$js = @"
-// src/config/dhis2.js
-// AUTO-GENERATED by setup-dhis2.ps1
-
-export const PROGRAM       = { id: '$progUid',  name: 'GMB Antenatal Care' }
-export const PROGRAM_STAGE = { id: '$stageUid', name: 'GMB ANC Visit' }
-export const TRACKED_ENTITY_TYPE = '$trackedEntityTypeUid'
-
-export const ORG_UNITS = {
-    theGambia:     '$gid',
-    serrekundaGH:  '$h1',
-    brikamaHC:     '$h2',
-    royalVictoria: '$h3',
-    edwardFrancis: '$h4',
-    farafenni:     '$h5',
-    bundungMCH:    '$h6',
-}
-
-export const ATTRIBUTES = {
-    fullName:              '$a1',
-    age:                   '$a2',
-    village:               '$a3',
-    phoneNumber:           '$a4',
-    parity:                '$a5',
-    previousComplications: '$a6',
-}
-
-export const DATA_ELEMENTS = {
-    bpSystolic:          '$d1',
-    bpDiastolic:         '$d2',
-    haemoglobin:         '$d3',
-    weight:              '$d4',
-    gestationalAge:      '$d5',
-    visitNumber:         '$d6',
-    malariaTestResult:   '$d7',
-    ironSupplementation: '$d8',
-    folicAcid:           '$d9',
-    nurseNotes:          '$d10',
-    dangerSigns:         '$d11',
-    nextVisitDate:       '$d12',
-}
-
-export const THRESHOLDS = {
-    AGE_MIN: 18, AGE_MAX: 35,
-    BP_SYSTOLIC_HIGH: 140, BP_DIASTOLIC_HIGH: 90,
-    BP_SYSTOLIC_SEVERE: 160, BP_DIASTOLIC_SEVERE: 110,
-    HB_NORMAL_MIN: 11.0, HB_MODERATE_ANAEMIA: 8.0, HB_SEVERE_ANAEMIA: 7.0,
-    ANC_MINIMUM_VISITS: 4, FIRST_TRIMESTER_WEEKS: 13,
-    GRAND_MULTIPARA_THRESHOLD: 4, SCORE_HIGH: 40, SCORE_MODERATE: 20,
-}
-
-export const MALARIA_RESULTS = [
-    'Negative', 'Positive (P. falciparum)', 'Positive (P. vivax)', 'Not done',
-]
-
-export const DANGER_SIGN_OPTIONS = [
-    'Severe headache', 'Blurred vision', 'Severe abdominal pain',
-    'Vaginal bleeding', 'Convulsions', 'Difficulty breathing',
-    'Reduced fetal movement', 'Swelling of face/hands',
-]
-
-export const COMPLICATION_OPTIONS = [
-    'None', 'Pre-eclampsia', 'Gestational diabetes', 'Placenta previa',
-    'Previous C-section', 'Postpartum haemorrhage', 'Anaemia',
-    'Preterm birth', 'Stillbirth', 'Miscarriage',
-]
-
-export const RISK_COLORS = {
-    high:     { main: '#dc2626', light: '#fef2f2', border: '#fecaca', dark: '#991b1b' },
-    moderate: { main: '#d97706', light: '#fffbeb', border: '#fde68a', dark: '#92400e' },
-    normal:   { main: '#16a34a', light: '#f0fdf4', border: '#bbf7d0', dark: '#14532d' },
-}
-"@
-
-$js | Out-File -FilePath "src\config\dhis2.js" -Encoding utf8 -NoNewline
-Write-Host "  Written successfully" -ForegroundColor Green
+Write-Host "Source config files were not overwritten. Runtime mappings are stored in DHIS2 dataStore." -ForegroundColor DarkGray
 
 # ── Done ──────────────────────────────────────────────────────
 Write-Host ""

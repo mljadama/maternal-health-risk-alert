@@ -2,7 +2,6 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import RiskBadge from './RiskBadge.jsx'
-import { RISK_COLORS } from '../../config/dhis2.js'
 import styles from './PatientCard.module.css'
 
 /**
@@ -14,7 +13,6 @@ export default function PatientCard({ patient }) {
   const navigate = useNavigate()
   const { teiUid, name, age, village, facility, gestationalAge, totalVisits, assessment } = patient
   const riskLevel = assessment?.level || 'normal'
-  const riskCfg = RISK_COLORS[riskLevel] || RISK_COLORS.normal
   const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
 
   const riskLevelClass = {

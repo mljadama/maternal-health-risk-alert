@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react'
 import { useAlerts } from '../hooks/useAlerts.js'
+import { useDhis2Config } from '../hooks/useDhis2Config.js'
 import { getRiskLabel } from '../services/riskEngine.js'
-import { RISK_COLORS } from '../config/dhis2.js'
+import { getConfiguredRiskColors } from '../utils/riskColors.js'
 import styles from './DataPage.module.css'
 
 function levelClass(level) {
@@ -66,6 +67,8 @@ function DetailPanel({ patient, assessment }) {
 }
 
 export default function RiskAlerts() {
+  const { config } = useDhis2Config()
+  const colors = getConfiguredRiskColors(config)
   const { alerts, loading, error } = useAlerts()
 
   const [search, setSearch] = useState('')
@@ -182,7 +185,7 @@ export default function RiskAlerts() {
                 <tr><td className={styles.td} colSpan={6}><div className={styles.empty}>{alerts.length === 0 ? 'No high-risk patients detected' : `No results for ${search}`}</div></td></tr>
               ) : filtered.map(p => {
                 const open = !!openMap[p.teiUid]
-                const cfg = RISK_COLORS[p.assessment.level]
+                const cfg = colors[p.assessment.level]
                 return (
                   <React.Fragment key={p.teiUid}>
                     <tr className={styles.trClickable} style={{ borderLeft: `4px solid ${cfg.main}`, background: open ? cfg.light : '#fff' }} onClick={() => toggleRow(p.teiUid)}>

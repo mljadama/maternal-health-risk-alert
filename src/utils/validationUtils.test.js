@@ -13,6 +13,19 @@ describe('validationUtils', () => {
       expect(isValidPhoneNumber('abc')).toBe(false)
       expect(isValidPhoneNumber('123')).toBe(false)
     })
+
+    it('allows an empty phone number on the form because the field is optional', () => {
+      const validData = {
+        fullName: 'Ada Lovelace',
+        age: 24,
+        village: 'Banjul',
+        phoneNumber: '',
+        orgUnit: 'ImspTQPwCqd',
+        gestationalAge: 14,
+        parity: 1,
+      }
+      expect(validatePatientForm(validData).phoneNumber).toBeUndefined()
+    })
   })
 
   describe('validatePatientForm', () => {
@@ -61,6 +74,14 @@ describe('validationUtils', () => {
         gestationalAge: 20,
       }
       expect(validateVisitForm(validVisit)).toEqual({})
+    })
+
+    it('requires core clinical fields before a visit can be saved', () => {
+      const errors = validateVisitForm({}, { requireClinical: true })
+      expect(errors.bpSystolic).toBeDefined()
+      expect(errors.haemoglobin).toBeDefined()
+      expect(errors.weight).toBeDefined()
+      expect(errors.gestationalAge).toBeDefined()
     })
 
     it('validates BP systolic > diastolic', () => {

@@ -1,7 +1,8 @@
 // src/components/patients/RiskBadge.jsx
 import React from 'react'
 import { getRiskLabel } from '../../services/riskEngine.js'
-import { RISK_COLORS } from '../../config/dhis2.js'
+import { useDhis2Config } from '../../hooks/useDhis2Config.js'
+import { getConfiguredRiskColors } from '../../utils/riskColors.js'
 import styles from './RiskBadge.module.css'
 
 /**
@@ -20,6 +21,8 @@ export default function RiskBadge({
   size = 'small',
   showScore = false,
 }) {
+  const { config } = useDhis2Config()
+  const colors = getConfiguredRiskColors(config)[level] || getConfiguredRiskColors(config).normal
   const label = getRiskLabel(level)
   const levelClass = {
     high: styles.high,
@@ -35,12 +38,26 @@ export default function RiskBadge({
 
   const badge = (
     <div className={styles.badgeContainer}>
-      <div className={`${styles.badge} ${styles[size]} ${levelClass}`}>
-        <span className={styles.dot} />
+      <div
+        className={`${styles.badge} ${styles[size]} ${levelClass}`}
+        style={{
+          backgroundColor: colors.light,
+          borderColor: colors.border,
+          color: colors.dark,
+        }}
+      >
+        <span className={styles.dot} style={{ backgroundColor: colors.main }} />
         <span>{label}</span>
       </div>
       {showScore && score !== undefined && (
-        <div className={`${styles.score} ${scoreClass}`}>
+        <div
+          className={`${styles.score} ${scoreClass}`}
+          style={{
+            backgroundColor: colors.light,
+            borderColor: colors.border,
+            color: colors.main,
+          }}
+        >
           {score} pts
         </div>
       )}
@@ -68,11 +85,5 @@ export default function RiskBadge({
         ))}
       </div>
     </div>
-  )
-}
-      placement="top"
-    >
-      <span style={{ cursor: 'help' }}>{chip}</span>
-    </Tooltip>
   )
 }

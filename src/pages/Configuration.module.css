@@ -56,12 +56,19 @@
   color: #334155;
 }
 
-.input {
+.colorRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.colorInput {
+  width: 44px;
+  height: 38px;
+  padding: 2px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  padding: 10px 12px;
-  font-size: 13px;
-  font-family: inherit;
+  background: #fff;
 }
 
 .actions {

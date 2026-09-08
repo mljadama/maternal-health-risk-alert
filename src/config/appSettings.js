@@ -6,6 +6,7 @@ import {
   RISK_COLORS,
 } from './dhis2.js'
 import { RULE_SCORES } from './riskRules.js'
+import { normalizeRiskColors } from '../utils/riskColors.js'
 
 export const APP_SETTINGS_NAMESPACE = 'maternal_health_risk_alert'
 export const APP_SETTINGS_KEY = 'config'
@@ -85,6 +86,19 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
+function toNumberMap(source = {}) {
+  const result = { ...source }
+  Object.keys(result).forEach(key => {
+    const value = result[key]
+    if (value === '' || value == null) return
+    const numeric = Number(value)
+    if (!Number.isNaN(numeric)) {
+      result[key] = numeric
+    }
+  })
+  return result
+}
+
 function mergeDeep(base, override) {
   if (Array.isArray(base)) {
     return Array.isArray(override) ? override : base
@@ -94,7 +108,7 @@ function mergeDeep(base, override) {
   }
   const result = { ...base }
   if (!isPlainObject(override)) {
-    return result
+    return override === undefined ? result : override
   }
   Object.entries(override).forEach(([key, value]) => {
     result[key] = mergeDeep(base[key], value)
@@ -103,7 +117,13 @@ function mergeDeep(base, override) {
 }
 
 export function normalizeAppSettings(storedSettings) {
-  return mergeDeep(DEFAULT_APP_SETTINGS, storedSettings)
+  const merged = mergeDeep(DEFAULT_APP_SETTINGS, storedSettings)
+  return {
+    ...merged,
+    thresholds: toNumberMap(merged.thresholds),
+    ruleScores: toNumberMap(merged.ruleScores),
+    riskColors: normalizeRiskColors(merged.riskColors),
+  }
 }
 
 export function buildAppSettingsPayload(settings) {

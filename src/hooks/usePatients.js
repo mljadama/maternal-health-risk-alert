@@ -1,7 +1,7 @@
 // src/hooks/usePatients.js
 import { useDataQuery } from '@dhis2/app-runtime'
 import { useMemo, useEffect } from 'react'
-import { assessRisk } from '../services/riskEngine.js'
+import { assessConfiguredRisk } from '../utils/assessWithConfig.js'
 import { useDhis2Config } from './useDhis2Config.js'
 import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
 import {
@@ -189,7 +189,8 @@ export function usePatients() {
                 facilityOrgUid         ||
                 '—'
 
-            const assessment = assessRisk(
+            const assessment = assessConfiguredRisk(
+                config,
                 { age, parity, previousComplications: prevComp },
                 {
                     totalVisits:         visits.length,
@@ -222,7 +223,7 @@ export function usePatients() {
                 rawVisits:      visits,
             }
         })
-    }, [pData, eData, ouMap, attributes, dataElements])
+    }, [pData, eData, ouMap, attributes, dataElements, config])
 
     return {
         patients,

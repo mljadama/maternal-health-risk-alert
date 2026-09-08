@@ -312,22 +312,33 @@ echo "Using user '$USER' UID: $ADMIN_UID"
 echo "Step 1: Organisation units..."
 
 get_root_ou_id() {
-    local response
+    local response id
     response=$(curl -sS -G "$BASE/organisationUnits" \
         -H "$(auth_header)" \
-        --data-urlencode "level=1" \
-        --data-urlencode "fields=id,name,code" \
+        --data-urlencode "filter=level:eq:1" \
+        --data-urlencode "fields=id,name,level" \
         --data-urlencode "paging=false")
+    id=$(extract_first_id "$response")
+    if [ -n "$id" ]; then
+        printf '%s' "$id"
+        return
+    fi
+
+    response=$(curl -sS -G "$BASE/organisationUnits" \
+        -H "$(auth_header)" \
+        --data-urlencode "fields=id" \
+        --data-urlencode "pageSize=1")
     extract_first_id "$response"
 }
 
 gid=$(get_root_ou_id)
 if [ -n "$gid" ]; then
-    echo "  Using existing root organisation unit: $gid"
+    echo "  Using existing organisation unit as parent (no extra root created): $gid"
 else
-    gid=$(get_or_create_ou "GMB" '{"name":"The Gambia","shortName":"Gambia","code":"GMB","openingDate":"1965-02-18"}')
+    echo "  No organisation units found. Creating a single demo root for an empty instance."
+    gid=$(get_or_create_ou "MHRA_ROOT" '{"name":"ANC Demo","shortName":"ANC Demo","code":"MHRA_ROOT","openingDate":"2000-01-01"}')
 fi
-require_uid "root organisation unit" "$gid"
+require_uid "parent organisation unit" "$gid"
 
 make_hospital() {
     local name="$1"
@@ -337,25 +348,17 @@ make_hospital() {
     get_or_create_ou "$code" "{\"name\":\"$name\",\"shortName\":\"$short\",\"code\":\"$code\",\"openingDate\":\"$date\",\"parent\":{\"id\":\"$gid\"}}"
 }
 
-h1=$(make_hospital "Serrekunda General Hospital" "Serrekunda GH" "GMB001" "1975-01-01")
-h2=$(make_hospital "Brikama Health Centre" "Brikama HC" "GMB002" "1980-01-01")
-h3=$(make_hospital "Royal Victoria Teaching Hospital" "RVTH" "GMB003" "1923-01-01")
-h4=$(make_hospital "Edward Francis Small Teaching Hospital" "EFSTH" "GMB004" "1923-01-01")
-h5=$(make_hospital "Farafenni Hospital" "Farafenni Hosp" "GMB005" "1966-01-01")
-h6=$(make_hospital "Bundung MCH Hospital" "Bundung MCH" "GMB006" "1989-01-01")
+h1=$(make_hospital "ANC Demo Clinic 1" "ANC Clinic 1" "MHRA01" "2000-01-01")
+h2=$(make_hospital "ANC Demo Clinic 2" "ANC Clinic 2" "MHRA02" "2000-01-01")
 
-for ou in "$h1" "$h2" "$h3" "$h4" "$h5" "$h6"; do
+for ou in "$h1" "$h2"; do
     require_uid "facility organisation unit" "$ou"
 done
 
-echo "  Serrekunda GH:  $h1"
-echo "  Brikama HC:     $h2"
-echo "  RVTH:           $h3"
-echo "  EFSTH:          $h4"
-echo "  Farafenni:      $h5"
-echo "  Bundung MCH:    $h6"
+echo "  ANC Demo Clinic 1: $h1"
+echo "  ANC Demo Clinic 2: $h2"
 
-all_ou=("$gid" "$h1" "$h2" "$h3" "$h4" "$h5" "$h6")
+all_ou=("$gid" "$h1" "$h2")
 for ou in "${all_ou[@]}"; do
     assign_user_org_unit_scopes "$ADMIN_UID" "$ou"
 done
@@ -367,7 +370,7 @@ force_patch_org_unit_scopes "$ADMIN_UID" "${all_ou[@]}"
 echo ""
 echo "Step 2: Tracked entity type and attributes..."
 
-tracked_entity_type_uid=$(get_or_create_by_name_shortname "trackedEntityTypes" "GMB Pregnant Woman" "GMB Mother" '{"name":"GMB Pregnant Woman","shortName":"GMB Mother"}')
+tracked_entity_type_uid=$(get_or_create_by_name_shortname "trackedEntityTypes" "ANC Pregnant Woman" "ANC Mother" '{"name":"ANC Pregnant Woman","shortName":"ANC Mother"}')
 require_uid "tracked entity type" "$tracked_entity_type_uid"
 echo "  Tracked Entity Type: $tracked_entity_type_uid"
 
@@ -378,12 +381,12 @@ make_attr() {
     get_or_create_by_name_shortname "trackedEntityAttributes" "$name" "$short" "{\"name\":\"$name\",\"shortName\":\"$short\",\"valueType\":\"$type\",\"aggregationType\":\"NONE\"}"
 }
 
-a1=$(make_attr "GMB Full Name" "GMB Full Name" "TEXT")
-a2=$(make_attr "GMB Age" "GMB Age" "NUMBER")
-a3=$(make_attr "GMB Village" "GMB Village" "TEXT")
-a4=$(make_attr "GMB Phone Number" "GMB Phone" "PHONE_NUMBER")
-a5=$(make_attr "GMB Parity" "GMB Parity" "NUMBER")
-a6=$(make_attr "GMB Previous Complications" "GMB Prev Complications" "TEXT")
+a1=$(make_attr "ANC Full Name" "ANC Full Name" "TEXT")
+a2=$(make_attr "ANC Age" "ANC Age" "NUMBER")
+a3=$(make_attr "ANC Village" "ANC Village" "TEXT")
+a4=$(make_attr "ANC Phone Number" "ANC Phone" "PHONE_NUMBER")
+a5=$(make_attr "ANC Parity" "ANC Parity" "NUMBER")
+a6=$(make_attr "ANC Previous Complications" "ANC Prev Complications" "TEXT")
 
 require_uid "attribute full name" "$a1"
 require_uid "attribute age" "$a2"
@@ -410,18 +413,18 @@ make_de() {
     get_or_create_by_name_shortname "dataElements" "$name" "$short" "{\"name\":\"$name\",\"shortName\":\"$short\",\"valueType\":\"$type\",\"domainType\":\"TRACKER\",\"aggregationType\":\"NONE\"}"
 }
 
-d1=$(make_de "GMB BP Systolic" "GMB BP Systolic" "NUMBER")
-d2=$(make_de "GMB BP Diastolic" "GMB BP Diastolic" "NUMBER")
-d3=$(make_de "GMB Haemoglobin" "GMB Haemoglobin" "NUMBER")
-d4=$(make_de "GMB Weight" "GMB Weight" "NUMBER")
-d5=$(make_de "GMB Gestational Age" "GMB Gestational Age" "NUMBER")
-d6=$(make_de "GMB Visit Number" "GMB Visit Number" "NUMBER")
-d7=$(make_de "GMB Malaria Test Result" "GMB Malaria Result" "TEXT")
-d8=$(make_de "GMB Iron Supplementation" "GMB Iron Suppl" "TRUE_ONLY")
-d9=$(make_de "GMB Folic Acid" "GMB Folic Acid" "TRUE_ONLY")
-d10=$(make_de "GMB Nurse Notes" "GMB Nurse Notes" "TEXT")
-d11=$(make_de "GMB Danger Signs" "GMB Danger Signs" "TEXT")
-d12=$(make_de "GMB Next Visit Date" "GMB Next Visit Date" "DATE")
+d1=$(make_de "ANC BP Systolic" "ANC BP Systolic" "NUMBER")
+d2=$(make_de "ANC BP Diastolic" "ANC BP Diastolic" "NUMBER")
+d3=$(make_de "ANC Haemoglobin" "ANC Haemoglobin" "NUMBER")
+d4=$(make_de "ANC Weight" "ANC Weight" "NUMBER")
+d5=$(make_de "ANC Gestational Age" "ANC Gestational Age" "NUMBER")
+d6=$(make_de "ANC Visit Number" "ANC Visit Number" "NUMBER")
+d7=$(make_de "ANC Malaria Test Result" "ANC Malaria Result" "TEXT")
+d8=$(make_de "ANC Iron Supplementation" "ANC Iron Suppl" "TRUE_ONLY")
+d9=$(make_de "ANC Folic Acid" "ANC Folic Acid" "TRUE_ONLY")
+d10=$(make_de "ANC Nurse Notes" "ANC Nurse Notes" "TEXT")
+d11=$(make_de "ANC Danger Signs" "ANC Danger Signs" "TEXT")
+d12=$(make_de "ANC Next Visit Date" "ANC Next Visit Date" "DATE")
 
 for de in "$d1" "$d2" "$d3" "$d4" "$d5" "$d6" "$d7" "$d8" "$d9" "$d10" "$d11" "$d12"; do
     require_uid "data element" "$de"
@@ -446,13 +449,12 @@ echo "Step 4: Creating ANC program..."
 
 prog_payload=$(cat <<EOF
 {
-  "name":"GMB Antenatal Care",
-  "shortName":"GMB ANC",
+  "name":"Antenatal Care",
+  "shortName":"ANC",
   "programType":"WITH_REGISTRATION",
   "trackedEntityType":{"id":"$tracked_entity_type_uid"},
   "organisationUnits":[
-    {"id":"$gid"},{"id":"$h1"},{"id":"$h2"},
-    {"id":"$h3"},{"id":"$h4"},{"id":"$h5"},{"id":"$h6"}
+    {"id":"$gid"},{"id":"$h1"},{"id":"$h2"}
   ],
   "programTrackedEntityAttributes":[
     {"trackedEntityAttribute":{"id":"$a1"},"mandatory":true,"displayInList":true,"sortOrder":1},
@@ -465,7 +467,7 @@ prog_payload=$(cat <<EOF
 }
 EOF
 )
-prog_uid=$(get_or_create_by_name_shortname "programs" "GMB Antenatal Care" "GMB ANC" "$prog_payload")
+prog_uid=$(get_or_create_by_name_shortname "programs" "Antenatal Care" "ANC" "$prog_payload")
 require_uid "program" "$prog_uid"
 
 echo "  Program UID: $prog_uid"
@@ -477,7 +479,7 @@ echo "Step 5: Creating ANC visit program stage..."
 
 stage_payload=$(cat <<EOF
 {
-  "name":"GMB ANC Visit",
+  "name":"ANC Visit",
   "program":{"id":"$prog_uid"},
   "sortOrder":1,
   "repeatable":true,
@@ -498,7 +500,7 @@ stage_payload=$(cat <<EOF
 }
 EOF
 )
-stage_uid=$(get_or_create_program_stage "GMB ANC Visit" "$prog_uid" "$stage_payload")
+stage_uid=$(get_or_create_program_stage "ANC Visit" "$prog_uid" "$stage_payload")
 require_uid "program stage" "$stage_uid"
 
 echo "  Program Stage UID: $stage_uid"
@@ -510,8 +512,8 @@ echo "Step 6: Seeding runtime app configuration..."
 
 config_json=$(cat <<EOF
 {
-  "program":{"id":"$prog_uid","name":"GMB Antenatal Care"},
-  "programStage":{"id":"$stage_uid","name":"GMB ANC Visit"},
+  "program":{"id":"$prog_uid","name":"Antenatal Care"},
+  "programStage":{"id":"$stage_uid","name":"ANC Visit"},
   "trackedEntityType":{"id":"$tracked_entity_type_uid"},
   "attributes":{
     "fullName":"$a1",
@@ -571,8 +573,8 @@ echo "Step 7: Writing datastore-config.json..."
 
 cat > datastore-config.json <<EOF
 {
-    "program": { "id": "$prog_uid", "name": "GMB Antenatal Care" },
-    "programStage": { "id": "$stage_uid", "name": "GMB ANC Visit" },
+    "program": { "id": "$prog_uid", "name": "Antenatal Care" },
+    "programStage": { "id": "$stage_uid", "name": "ANC Visit" },
     "trackedEntityType": { "id": "$tracked_entity_type_uid" },
     "attributes": {
         "fullName": "$a1",
@@ -601,121 +603,8 @@ EOF
 
 echo "  datastore-config.json updated"
 
-# Step 8: Write src/config/defaultUidConfig.js
 echo ""
-echo "Step 8: Writing src/config/defaultUidConfig.js..."
-
-cat > src/config/defaultUidConfig.js <<EOF
-export const DEFAULT_UID_CONFIG = {
-    program: { id: '$prog_uid', name: 'GMB Antenatal Care' },
-    programStage: { id: '$stage_uid', name: 'GMB ANC Visit' },
-    trackedEntityType: { id: '$tracked_entity_type_uid' },
-    attributes: {
-        fullName: '$a1',
-        age: '$a2',
-        village: '$a3',
-        phoneNumber: '$a4',
-        parity: '$a5',
-        previousComplications: '$a6',
-    },
-    dataElements: {
-        bpSystolic: '$d1',
-        bpDiastolic: '$d2',
-        haemoglobin: '$d3',
-        weight: '$d4',
-        gestationalAge: '$d5',
-        visitNumber: '$d6',
-        malariaTestResult: '$d7',
-        ironSupplementation: '$d8',
-        folicAcid: '$d9',
-        nurseNotes: '$d10',
-        dangerSigns: '$d11',
-        nextVisitDate: '$d12',
-    },
-}
-EOF
-
-echo "  src/config/defaultUidConfig.js updated"
-
-# Step 9: Write src/config/dhis2.js
-echo ""
-echo "Step 9: Writing src/config/dhis2.js..."
-
-cat > src/config/dhis2.js <<EOF
-// src/config/dhis2.js
-// AUTO-GENERATED by setup-dhis2.sh
-
-export const PROGRAM       = { id: '$prog_uid',  name: 'GMB Antenatal Care' }
-export const PROGRAM_STAGE = { id: '$stage_uid', name: 'GMB ANC Visit' }
-export const TRACKED_ENTITY_TYPE = '$tracked_entity_type_uid'
-
-export const ORG_UNITS = {
-    theGambia:     '$gid',
-    serrekundaGH:  '$h1',
-    brikamaHC:     '$h2',
-    royalVictoria: '$h3',
-    edwardFrancis: '$h4',
-    farafenni:     '$h5',
-    bundungMCH:    '$h6',
-}
-
-export const ATTRIBUTES = {
-    fullName:              '$a1',
-    age:                   '$a2',
-    village:               '$a3',
-    phoneNumber:           '$a4',
-    parity:                '$a5',
-    previousComplications: '$a6',
-}
-
-export const DATA_ELEMENTS = {
-    bpSystolic:          '$d1',
-    bpDiastolic:         '$d2',
-    haemoglobin:         '$d3',
-    weight:              '$d4',
-    gestationalAge:      '$d5',
-    visitNumber:         '$d6',
-    malariaTestResult:   '$d7',
-    ironSupplementation: '$d8',
-    folicAcid:           '$d9',
-    nurseNotes:          '$d10',
-    dangerSigns:         '$d11',
-    nextVisitDate:       '$d12',
-}
-
-export const THRESHOLDS = {
-    AGE_MIN: 18, AGE_MAX: 35,
-    BP_SYSTOLIC_HIGH: 140, BP_DIASTOLIC_HIGH: 90,
-    BP_SYSTOLIC_SEVERE: 160, BP_DIASTOLIC_SEVERE: 110,
-    HB_NORMAL_MIN: 11.0, HB_MODERATE_ANAEMIA: 8.0, HB_SEVERE_ANAEMIA: 7.0,
-    ANC_MINIMUM_VISITS: 4, FIRST_TRIMESTER_WEEKS: 13,
-    GRAND_MULTIPARA_THRESHOLD: 4, SCORE_HIGH: 40, SCORE_MODERATE: 20,
-}
-
-export const MALARIA_RESULTS = [
-    'Negative', 'Positive (P. falciparum)', 'Positive (P. vivax)', 'Not done',
-]
-
-export const DANGER_SIGN_OPTIONS = [
-    'Severe headache', 'Blurred vision', 'Severe abdominal pain',
-    'Vaginal bleeding', 'Convulsions', 'Difficulty breathing',
-    'Reduced fetal movement', 'Swelling of face/hands',
-]
-
-export const COMPLICATION_OPTIONS = [
-    'None', 'Pre-eclampsia', 'Gestational diabetes', 'Placenta previa',
-    'Previous C-section', 'Postpartum haemorrhage', 'Anaemia',
-    'Preterm birth', 'Stillbirth', 'Miscarriage',
-]
-
-export const RISK_COLORS = {
-    high:     { main: '#dc2626', light: '#fef2f2', border: '#fecaca', dark: '#991b1b' },
-    moderate: { main: '#d97706', light: '#fffbeb', border: '#fde68a', dark: '#92400e' },
-    normal:   { main: '#16a34a', light: '#f0fdf4', border: '#bbf7d0', dark: '#14532d' },
-}
-EOF
-
-echo "  Written successfully"
+echo "Source config files were not overwritten. Runtime mappings are stored in DHIS2 dataStore so the app stays instance-agnostic."
 
 # Done
 echo ""

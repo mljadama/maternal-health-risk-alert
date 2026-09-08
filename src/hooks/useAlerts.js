@@ -193,7 +193,7 @@ export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODER
             })
             .filter(p => includeLevels.includes(p.assessment.level))
             .sort((a, b) => b.assessment.score - a.assessment.score)
-    }, [pData, eData, ouMap, includeLevels])
+    }, [pData, eData, ouMap, includeLevels, config])
 
     return { alerts, loading, error, refetch: () => { rp(); re() } }
 }
