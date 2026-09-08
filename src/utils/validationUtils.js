@@ -30,9 +30,8 @@ export function validatePatientForm(values) {
     }
   }
 
-  // Village / Community
   if (!values.village || !values.village.trim()) {
-    errors.village = 'Village / Community is required'
+    errors.village = 'Community / area is required'
   }
 
   if (values.phoneNumber && values.phoneNumber.trim() && !isValidPhoneNumber(values.phoneNumber)) {

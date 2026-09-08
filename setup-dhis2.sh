@@ -383,21 +383,21 @@ make_attr() {
 
 a1=$(make_attr "ANC Full Name" "ANC Full Name" "TEXT")
 a2=$(make_attr "ANC Age" "ANC Age" "NUMBER")
-a3=$(make_attr "ANC Village" "ANC Village" "TEXT")
+a3=$(make_attr "ANC Community" "ANC Community" "TEXT")
 a4=$(make_attr "ANC Phone Number" "ANC Phone" "PHONE_NUMBER")
 a5=$(make_attr "ANC Parity" "ANC Parity" "NUMBER")
 a6=$(make_attr "ANC Previous Complications" "ANC Prev Complications" "TEXT")
 
 require_uid "attribute full name" "$a1"
 require_uid "attribute age" "$a2"
-require_uid "attribute village" "$a3"
+require_uid "attribute community" "$a3"
 require_uid "attribute phone number" "$a4"
 require_uid "attribute parity" "$a5"
 require_uid "attribute previous complications" "$a6"
 
 echo "  Full Name:           $a1"
 echo "  Age:                 $a2"
-echo "  Village:             $a3"
+echo "  Community:           $a3"
 echo "  Phone:               $a4"
 echo "  Parity:              $a5"
 echo "  Prev Complications:  $a6"

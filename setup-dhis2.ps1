@@ -360,9 +360,9 @@ try {
 Write-Host ""
 Write-Host "Step 2: Tracked entity type and attributes..." -ForegroundColor Yellow
 
-$trackedEntityTypeUid = GetOrCreateTET "GMB Pregnant Woman" @{
-    name      = "GMB Pregnant Woman"
-    shortName = "GMB Mother"
+$trackedEntityTypeUid = GetOrCreateTET "ANC Pregnant Woman" @{
+    name      = "ANC Pregnant Woman"
+    shortName = "ANC Mother"
 }
 if (-not $trackedEntityTypeUid) { throw "Tracked entity type was not created successfully." }
 Write-Host "  Tracked Entity Type: $trackedEntityTypeUid"
@@ -376,16 +376,16 @@ function MakeAttr($name, $short, $type) {
     }
 }
 
-$a1 = MakeAttr "GMB Full Name"              "GMB Full Name"          "TEXT"
-$a2 = MakeAttr "GMB Age"                    "GMB Age"                "NUMBER"
-$a3 = MakeAttr "GMB Village"               "GMB Village"            "TEXT"
-$a4 = MakeAttr "GMB Phone Number"           "GMB Phone"              "PHONE_NUMBER"
-$a5 = MakeAttr "GMB Parity"                "GMB Parity"             "NUMBER"
-$a6 = MakeAttr "GMB Previous Complications" "GMB Prev Complications" "TEXT"
+$a1 = MakeAttr "ANC Full Name"              "ANC Full Name"          "TEXT"
+$a2 = MakeAttr "ANC Age"                    "ANC Age"                "NUMBER"
+$a3 = MakeAttr "ANC Community"               "ANC Community"            "TEXT"
+$a4 = MakeAttr "ANC Phone Number"           "ANC Phone"              "PHONE_NUMBER"
+$a5 = MakeAttr "ANC Parity"                "ANC Parity"             "NUMBER"
+$a6 = MakeAttr "ANC Previous Complications" "ANC Prev Complications" "TEXT"
 
 Write-Host "  Full Name:           $a1"
 Write-Host "  Age:                 $a2"
-Write-Host "  Village:             $a3"
+Write-Host "  Community:           $a3"
 Write-Host "  Phone:               $a4"
 Write-Host "  Parity:              $a5"
 Write-Host "  Prev Complications:  $a6"
@@ -408,18 +408,18 @@ function MakeDE($name, $short, $type) {
     }
 }
 
-$d1  = MakeDE "GMB BP Systolic"          "GMB BP Systolic"      "NUMBER"
-$d2  = MakeDE "GMB BP Diastolic"         "GMB BP Diastolic"     "NUMBER"
-$d3  = MakeDE "GMB Haemoglobin"          "GMB Haemoglobin"      "NUMBER"
-$d4  = MakeDE "GMB Weight"               "GMB Weight"           "NUMBER"
-$d5  = MakeDE "GMB Gestational Age"      "GMB Gestational Age"  "NUMBER"
-$d6  = MakeDE "GMB Visit Number"         "GMB Visit Number"     "NUMBER"
-$d7  = MakeDE "GMB Malaria Test Result"  "GMB Malaria Result"   "TEXT"
-$d8  = MakeDE "GMB Iron Supplementation" "GMB Iron Suppl"       "TRUE_ONLY"
-$d9  = MakeDE "GMB Folic Acid"           "GMB Folic Acid"       "TRUE_ONLY"
-$d10 = MakeDE "GMB Nurse Notes"          "GMB Nurse Notes"      "TEXT"
-$d11 = MakeDE "GMB Danger Signs"         "GMB Danger Signs"     "TEXT"
-$d12 = MakeDE "GMB Next Visit Date"      "GMB Next Visit Date"  "DATE"
+$d1  = MakeDE "ANC BP Systolic"          "ANC BP Systolic"      "NUMBER"
+$d2  = MakeDE "ANC BP Diastolic"         "ANC BP Diastolic"     "NUMBER"
+$d3  = MakeDE "ANC Haemoglobin"          "ANC Haemoglobin"      "NUMBER"
+$d4  = MakeDE "ANC Weight"               "ANC Weight"           "NUMBER"
+$d5  = MakeDE "ANC Gestational Age"      "ANC Gestational Age"  "NUMBER"
+$d6  = MakeDE "ANC Visit Number"         "ANC Visit Number"     "NUMBER"
+$d7  = MakeDE "ANC Malaria Test Result"  "ANC Malaria Result"   "TEXT"
+$d8  = MakeDE "ANC Iron Supplementation" "ANC Iron Suppl"       "TRUE_ONLY"
+$d9  = MakeDE "ANC Folic Acid"           "ANC Folic Acid"       "TRUE_ONLY"
+$d10 = MakeDE "ANC Nurse Notes"          "ANC Nurse Notes"      "TEXT"
+$d11 = MakeDE "ANC Danger Signs"         "ANC Danger Signs"     "TEXT"
+$d12 = MakeDE "ANC Next Visit Date"      "ANC Next Visit Date"  "DATE"
 
 Write-Host "  BP Systolic:      $d1"
 Write-Host "  BP Diastolic:     $d2"
@@ -442,9 +442,9 @@ if (-not ($d1 -and $d2 -and $d3 -and $d4 -and $d5 -and $d6 -and $d7 -and $d8 -an
 Write-Host ""
 Write-Host "Step 4: Creating ANC program..." -ForegroundColor Yellow
 
-$progUid = GetOrCreateProgram "GMB Antenatal Care" @{
-    name              = "GMB Antenatal Care"
-    shortName         = "GMB ANC"
+$progUid = GetOrCreateProgram "Antenatal Care" @{
+    name              = "Antenatal Care"
+    shortName         = "ANC"
     programType       = "WITH_REGISTRATION"
     trackedEntityType = @{ id = $trackedEntityTypeUid }
     organisationUnits = @(
@@ -467,8 +467,8 @@ Share "programs" $progUid
 Write-Host ""
 Write-Host "Step 5: Creating ANC visit program stage..." -ForegroundColor Yellow
 
-$stageUid = GetOrCreateStage "GMB ANC Visit" @{
-    name       = "GMB ANC Visit"
+$stageUid = GetOrCreateStage "ANC Visit" @{
+    name       = "ANC Visit"
     program    = @{ id = $progUid }
     sortOrder  = 1
     repeatable = $true
@@ -496,8 +496,8 @@ Write-Host ""
 Write-Host "Step 6: Seeding runtime app configuration..." -ForegroundColor Yellow
 
 $config = @{
-    program           = @{ id = $progUid;  name = "GMB Antenatal Care" }
-    programStage      = @{ id = $stageUid; name = "GMB ANC Visit" }
+    program           = @{ id = $progUid;  name = "Antenatal Care" }
+    programStage      = @{ id = $stageUid; name = "ANC Visit" }
     trackedEntityType = @{ id = $trackedEntityTypeUid }
     attributes = @{
         fullName              = $a1

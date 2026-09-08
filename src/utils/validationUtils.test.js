@@ -3,8 +3,8 @@ import { isValidPhoneNumber, validatePatientForm, validateVisitForm } from './va
 describe('validationUtils', () => {
   describe('isValidPhoneNumber', () => {
     it('accepts valid phone numbers', () => {
-      expect(isValidPhoneNumber('+2207000000')).toBe(true)
-      expect(isValidPhoneNumber('7000000')).toBe(true)
+      expect(isValidPhoneNumber('+15550123')).toBe(true)
+      expect(isValidPhoneNumber('5550123')).toBe(true)
       expect(isValidPhoneNumber('+1 234 567 8900')).toBe(true)
     })
 
@@ -18,7 +18,7 @@ describe('validationUtils', () => {
       const validData = {
         fullName: 'Ada Lovelace',
         age: 24,
-        village: 'Banjul',
+        village: 'Riverside',
         phoneNumber: '',
         orgUnit: 'ImspTQPwCqd',
         gestationalAge: 14,
@@ -31,11 +31,11 @@ describe('validationUtils', () => {
   describe('validatePatientForm', () => {
     it('returns no errors for valid patient data', () => {
       const validData = {
-        fullName: 'Fatou Jallow',
+        fullName: 'Ada Lovelace',
         age: 24,
-        village: 'Serrekunda',
-        phoneNumber: '+2207000000',
-        orgUnit: 'GMB001',
+        village: 'Riverside',
+        phoneNumber: '+15550123',
+        orgUnit: 'ImspTQPwCqd',
         gestationalAge: 14,
         parity: 2,
       }

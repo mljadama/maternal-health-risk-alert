@@ -57,7 +57,7 @@ const FIELD_GROUPS = [
     fields: [
       ['attributes.fullName', 'Full name attribute UID', 'text'],
       ['attributes.age', 'Age attribute UID', 'text'],
-      ['attributes.village', 'Village / address attribute UID', 'text'],
+      ['attributes.village', 'Community / area attribute UID', 'text'],
       ['attributes.phoneNumber', 'Phone number attribute UID', 'text'],
       ['attributes.parity', 'Parity attribute UID', 'text'],
       ['attributes.previousComplications', 'Previous complications attribute UID', 'text'],

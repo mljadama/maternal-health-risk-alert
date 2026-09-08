@@ -6,7 +6,7 @@
     "long_description": "Maternal Health Risk Alert helps antenatal care teams screen pregnancies for risk using DHIS2 tracker data and evidence-based rules.",
     "author": {
         "name": "Maternal Health Development Team",
-        "url": "https://github.com/your-org/maternal-health-risk-alert"
+        "url": "https://github.com/mljadama/maternal-health-risk-alert"
     },
     "keywords": ["maternal-health", "antenatal-care", "pregnancy", "risk-assessment", "tracker", "clinical-decision-support"],
     "license": "BSD-3-Clause",

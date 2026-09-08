@@ -120,7 +120,7 @@ export default function PatientList() {
         <input
           className={styles.input}
           style={{ minWidth: 260 }}
-          placeholder="Search name, village or facility"
+          placeholder="Search name, community or facility"
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
@@ -132,7 +132,7 @@ export default function PatientList() {
             <thead>
               <tr>
                 <th className={styles.th}><button className={styles.btn} onClick={() => handleSort('name')}>Patient</button></th>
-                <th className={styles.th}><button className={styles.btn} onClick={() => handleSort('village')}>Village</button></th>
+                <th className={styles.th}><button className={styles.btn} onClick={() => handleSort('village')}>Community / area</button></th>
                 <th className={styles.th}><button className={styles.btn} onClick={() => handleSort('facility')}>Facility</button></th>
                 <th className={styles.th}><button className={styles.btn} onClick={() => handleSort('ga')}>GA</button></th>
                 <th className={styles.th}><button className={styles.btn} onClick={() => handleSort('visits')}>Visits</button></th>

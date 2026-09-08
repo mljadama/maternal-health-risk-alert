@@ -19,7 +19,7 @@ function DetailPanel({ patient, assessment }) {
           <h4 className={styles.panelTitle}>Contact</h4>
           <div className={styles.smallList}>
             <div className={styles.smallRow}><span>Phone</span><strong>{patient.phone || '-'}</strong></div>
-            <div className={styles.smallRow}><span>Village</span><strong>{patient.village || '-'}</strong></div>
+            <div className={styles.smallRow}><span>Community / area</span><strong>{patient.village || '-'}</strong></div>
             <div className={styles.smallRow}><span>Facility</span><strong>{patient.facility || '-'}</strong></div>
           </div>
         </div>
@@ -157,7 +157,7 @@ export default function RiskAlerts() {
         <input
           className={styles.input}
           style={{ minWidth: 260 }}
-          placeholder="Search name, village or facility"
+          placeholder="Search name, community or facility"
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
@@ -174,7 +174,7 @@ export default function RiskAlerts() {
               <tr>
                 <th className={styles.th} />
                 <th className={styles.th}><button className={styles.btn} onClick={() => sort('name')}>Patient</button></th>
-                <th className={styles.th}><button className={styles.btn} onClick={() => sort('village')}>Village</button></th>
+                <th className={styles.th}><button className={styles.btn} onClick={() => sort('village')}>Community / area</button></th>
                 <th className={styles.th}><button className={styles.btn} onClick={() => sort('facility')}>Facility</button></th>
                 <th className={styles.th}><button className={styles.btn} onClick={() => sort('score')}>Risk</button></th>
                 <th className={styles.th}><button className={styles.btn} onClick={() => sort('visit')}>Latest visit</button></th>

@@ -22,7 +22,7 @@ const REQUIRED_UID_FIELDS = [
   { path: 'trackedEntityType.id', label: 'Tracked entity type UID' },
   { path: 'attributes.fullName', label: 'Full name attribute UID' },
   { path: 'attributes.age', label: 'Age attribute UID' },
-  { path: 'attributes.village', label: 'Village attribute UID' },
+  { path: 'attributes.village', label: 'Community / area attribute UID' },
   { path: 'attributes.phoneNumber', label: 'Phone number attribute UID' },
   { path: 'attributes.parity', label: 'Parity attribute UID' },
   { path: 'attributes.previousComplications', label: 'Previous complications attribute UID' },

@@ -165,8 +165,8 @@ export default function RegisterPatient() {
                 </div>
 
                 <div className={styles.field}>
-                  <label className={styles.label}>Village</label>
-                  <input className={styles.input} value={vals.village} onChange={e => change('village', e.target.value)} onBlur={() => blur('village')} placeholder="e.g. Springfield" />
+                  <label className={styles.label}>Community / area</label>
+                  <input className={styles.input} value={vals.village} onChange={e => change('village', e.target.value)} onBlur={() => blur('village')} placeholder="e.g. community or neighbourhood" />
                   {errs.village && <div className={styles.error}>{errs.village}</div>}
                 </div>
               </div>
@@ -174,7 +174,7 @@ export default function RegisterPatient() {
               <div className={styles.grid2}>
                 <div className={styles.field}>
                   <label className={styles.label}>Phone number (optional)</label>
-                  <input className={styles.input} value={vals.phoneNumber} onChange={e => change('phoneNumber', e.target.value)} onBlur={() => blur('phoneNumber')} placeholder="+220 7000000" />
+                  <input className={styles.input} value={vals.phoneNumber} onChange={e => change('phoneNumber', e.target.value)} onBlur={() => blur('phoneNumber')} placeholder="+1 555-0123" />
                   {errs.phoneNumber && <div className={styles.error}>{errs.phoneNumber}</div>}
                 </div>
 
@@ -238,7 +238,7 @@ export default function RegisterPatient() {
                 {[
                   ['Full name', vals.fullName],
                   ['Age', vals.age + ' years'],
-                  ['Village', vals.village],
+                  ['Community / area', vals.village],
                   ['Phone', vals.phoneNumber],
                   ['Facility', facilityName || 'Not selected'],
                 ].map(([k, v]) => (

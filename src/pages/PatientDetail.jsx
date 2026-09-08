@@ -101,7 +101,7 @@ export default function PatientDetail() {
           <div className={styles.panel} style={{ marginBottom: 10 }}>
             <h3 className={styles.panelTitle}>Patient information</h3>
             <div className={styles.smallList}>
-              <div className={styles.smallRow}><span>Village</span><strong>{patient.village || '-'}</strong></div>
+              <div className={styles.smallRow}><span>Community / area</span><strong>{patient.village || '-'}</strong></div>
               <div className={styles.smallRow}><span>Phone</span><strong>{patient.phoneNumber || '-'}</strong></div>
               <div className={styles.smallRow}><span>Facility</span><strong>{patient.facility || '-'}</strong></div>
               <div className={styles.smallRow}><span>Enrolled</span><strong>{patient.enrollmentDate ? new Date(patient.enrollmentDate).toLocaleDateString('en-GB') : '-'}</strong></div>

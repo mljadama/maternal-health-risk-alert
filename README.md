@@ -2,7 +2,7 @@
 
 A DHIS2 app that scores antenatal care visits as they are entered and flags high-risk pregnancies so clinic staff can follow up sooner.
 
-It was first built for antenatal care in The Gambia. You can map it to **any** DHIS2 Tracker antenatal program.
+Map it to **any** DHIS2 Tracker antenatal program. Risk rules, cutoffs, and colours can be changed per country or clinical protocol.
 
 ## What the app does
 
@@ -35,11 +35,11 @@ You need permission to use Tracker programs and to write the app’s dataStore k
 
 ## Configure the app
 
-The app does not assume Gambia (or any other country’s) metadata. On first use it asks you to map your instance.
+The app does not assume any country’s metadata. On first use it asks you to map your instance.
 
 1. Open **Configuration**.
 2. Select your antenatal **tracker program** and visit **program stage**.
-3. Map attributes (name, age, village, phone, parity, previous complications) and visit data elements (blood pressure, haemoglobin, weight, and the rest).
+3. Map attributes (name, age, community/area, phone, parity, previous complications) and visit data elements (blood pressure, haemoglobin, weight, and the rest).
 4. Optionally change risk scores, cutoffs, and colours.
 5. Save. Settings are stored in DHIS2 dataStore on that server.
 
@@ -64,7 +64,7 @@ The script attaches two demo clinics under an **existing** country-level organis
 
 ## Daily use
 
-1. **Register patient** — name, age, village, facility, gestational age, parity. Phone number is optional; if entered it must be a valid number.
+1. **Register patient** — name, age, community/area, facility, gestational age, parity. Phone number is optional; if entered it must be a valid number.
 2. **Record visit** — blood pressure, haemoglobin, weight, and gestational age are required.
 3. **Patients** and **Dashboard** — see who is enrolled and how risk is distributed.
 4. **Risk alerts** — work through high and moderate cases.
@@ -104,7 +104,9 @@ Default cutoffs: total score **40 or more** is high risk; **20 or more** is mode
 
 ## Why this project exists
 
-The Gambia recorded 130 maternal deaths in 2025, many linked to conditions such as pre-eclampsia, severe anaemia, and malaria that can be detected during antenatal care. In busy clinics, risk identification still often depends on manual review. This app scores the visit as soon as the data is entered so high-risk patients are flagged immediately.
+High-risk pregnancies are often missed when antenatal records are reviewed late or by hand. This app scores the visit as soon as the data is entered so hypertension, anaemia, malaria, danger signs, and obstetric history can trigger follow-up immediately.
+
+It was first used in The Gambia. The same app is meant to be reused anywhere DHIS2 Tracker is used for antenatal care.
 
 ## Run it locally
 

@@ -1,27 +1,27 @@
 {
-    "program": { "id": "ZDwzkHQascA", "name": "GMB Antenatal Care" },
-    "programStage": { "id": "WcfAscK7N0q", "name": "GMB ANC Visit" },
-    "trackedEntityType": { "id": "CYMTl1oyOVN" },
+    "program": { "id": "", "name": "" },
+    "programStage": { "id": "", "name": "" },
+    "trackedEntityType": { "id": "" },
     "attributes": {
-        "fullName": "PUCdtb0MOyQ",
-        "age": "hIuC37FtFTA",
-        "village": "oNLAVbEFV3D",
-        "phoneNumber": "TLtIucf74dE",
-        "parity": "UGUjxXVumCT",
-        "previousComplications": "VdcyQxvQS9e"
+        "fullName": "",
+        "age": "",
+        "village": "",
+        "phoneNumber": "",
+        "parity": "",
+        "previousComplications": ""
     },
     "dataElements": {
-        "bpSystolic": "RMM0n0OiEni",
-        "bpDiastolic": "GJMSxCMJCvQ",
-        "haemoglobin": "R6ryYRu2Sua",
-        "weight": "rcSnIFl8K5v",
-        "gestationalAge": "HtRvksyV0Aq",
-        "visitNumber": "qahajEwqnkc",
-        "malariaTestResult": "fTOSHWb2UOr",
-        "ironSupplementation": "b9ASqXBhKcA",
-        "folicAcid": "kasAW2etZLT",
-        "nurseNotes": "biL8h9o3NOm",
-        "dangerSigns": "lHRIJmGE1v1",
-        "nextVisitDate": "pxT1AvV5J6u"
+        "bpSystolic": "",
+        "bpDiastolic": "",
+        "haemoglobin": "",
+        "weight": "",
+        "gestationalAge": "",
+        "visitNumber": "",
+        "malariaTestResult": "",
+        "ironSupplementation": "",
+        "folicAcid": "",
+        "nurseNotes": "",
+        "dangerSigns": "",
+        "nextVisitDate": ""
     }
 }

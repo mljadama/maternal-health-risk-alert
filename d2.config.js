@@ -20,11 +20,11 @@ const config = {
         email: 'support@example.com',
     },
     support: {
-        url: 'https://github.com/your-org/maternal-health-risk-alert/issues',
+        url: 'https://github.com/mljadama/maternal-health-risk-alert/issues',
     },
     documentation: {
-        user: 'https://github.com/your-org/maternal-health-risk-alert#usage',
-        developer: 'https://github.com/your-org/maternal-health-risk-alert#development',
+        user: 'https://github.com/mljadama/maternal-health-risk-alert#install-from-app-hub',
+        developer: 'https://github.com/mljadama/maternal-health-risk-alert#run-it-locally',
     },
     keywords: ['maternal-health', 'antenatal-care', 'pregnancy', 'risk-assessment', 'tracker', 'clinical-decision-support'],
     tags: ['maternal-health', 'antenatal-care', 'clinical-decision-support'],

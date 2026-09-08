@@ -28,7 +28,7 @@ export function PersonalDetailsFields({ values, errors, onChange, orgUnits = [],
         {errors.fullName && <div className={`${styles.helperText} ${styles.error}`}>{errors.fullName}</div>}
       </div>
 
-      {/* Age and Village in two columns */}
+      {/* Age and community / area in two columns */}
       <div className={styles.grid + ' ' + styles.twoColumn}>
         <div className={styles.field}>
           <label className={`${styles.label} ${styles.required}`}>Age</label>
@@ -47,7 +47,7 @@ export function PersonalDetailsFields({ values, errors, onChange, orgUnits = [],
         </div>
 
         <div className={styles.field}>
-          <label className={`${styles.label} ${styles.required}`}>Village</label>
+          <label className={`${styles.label} ${styles.required}`}>Community / area</label>
           <div className={styles.inputWithIcon}>
             <span className={styles.icon}>📍</span>
             <input
@@ -55,7 +55,7 @@ export function PersonalDetailsFields({ values, errors, onChange, orgUnits = [],
               className={`${styles.input} ${errors.village ? styles.error : ''}`}
               value={values.village}
               onChange={e => onChange('village', e.target.value)}
-              placeholder="e.g. Springfield"
+              placeholder="e.g. community or neighbourhood"
               required
             />
           </div>
