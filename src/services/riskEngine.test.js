@@ -1,4 +1,4 @@
-import { assessRisk, RISK_LEVELS, RULE_IDS, THRESHOLDS } from './riskEngine'
+import { assessRisk, RISK_LEVELS, RULE_IDS } from './riskEngine'
 
 describe('riskEngine', () => {
   it('assesses normal pregnancy as NORMAL risk with score 0', () => {

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { Box, Button, NoticeBox } from '@dhis2/ui'
 import { useAppContext } from '../../context/AppContext.jsx'
 import { validateAppSettings } from '../../config/appSettings.js'
-import styles from './ConfigurationGuard.module.css'
 
 export default function ConfigurationGuard({ children }) {
   const navigate = useNavigate()

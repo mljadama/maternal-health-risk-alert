@@ -105,7 +105,7 @@ export function usePatients() {
     }), [])
 
     const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: true })
-    const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: true })
+    const { data: eData, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: true })
     const { data: ouData, loading: ol, refetch: ro } = useDataQuery(ORG_UNITS_QUERY, { lazy: true })
 
     useEffect(() => {

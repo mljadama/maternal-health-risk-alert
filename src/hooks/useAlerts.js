@@ -1,6 +1,6 @@
 // src/hooks/useAlerts.js
 import { useDataQuery } from '@dhis2/app-runtime'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { assessRisk, RISK_LEVELS } from '../services/riskEngine.js'
 import { useDhis2Config } from './useDhis2Config.js'
 import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
@@ -88,10 +88,10 @@ export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODER
     }), [])
 
     const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: true })
-    const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: true })
+    const { data: eData, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: true })
     const { data: ouData, loading: ol } = useDataQuery(ORG_UNITS_QUERY, { lazy: configLoading || meLoading })
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (!shouldPauseQueries && config.program?.id) {
             rp()
             re()

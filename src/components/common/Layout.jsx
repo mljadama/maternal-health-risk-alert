@@ -4,7 +4,6 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import styles from './Layout.module.css'
 
 const DHIS2_HEADER_HEIGHT = 48
-const SIDEBAR_WIDTH = 260
 const MOBILE_BREAKPOINT = 768
 
 const NAV_ITEMS = [
