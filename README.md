@@ -1,17 +1,73 @@
-# Maternal Health Risk Alert System
+# Maternal Health Risk Alert
 
-A DHIS2 web application that automatically identifies high-risk pregnancies during antenatal care using evidence-based clinical rules.
+A DHIS2 app that scores antenatal care visits as they are entered and flags high-risk pregnancies so clinic staff can follow up sooner.
 
-## Why this project exists
+It was first built for antenatal care in The Gambia. You can map it to **any** DHIS2 Tracker antenatal program.
 
-The Gambia recorded 130 maternal deaths in 2025, many linked to conditions such as pre-eclampsia, severe anaemia, and malaria that can be detected early with timely screening. Yet in many antenatal care settings, risk identification still depends on manual review, overstretched staff, and paper records.
+## What the app does
 
-Maternal Health Risk Alert was built to help close that gap. The app automatically scores pregnancy risk as soon as clinical data is entered, so high-risk patients are flagged immediately rather than discovered too late.
+During a routine antenatal visit, a nurse records blood pressure, haemoglobin, malaria results, danger signs, and obstetric history. The app applies clinical rules and shows a colour-coded result:
 
-## Available on DHIS2 App Hub
+- **High risk** — needs urgent attention
+- **Moderate risk** — needs closer follow-up
+- **Normal** — continue the usual antenatal schedule
 
-[Install from DHIS2 App Hub](https://apps.dhis2.org/?query=Maternal%20Health%20Risk%20Alert)
-> ✅ **v1.0.3 approved on May 5, 2026** — Recommended for production use.
+Staff can register patients, record visits, view trends, and work from a risk-alerts list. Scoring weights, clinical cutoffs, and alert colours can be changed in the Configuration page.
+
+## Who this README is for
+
+| You are | Start here |
+|---|---|
+| Installing the app on a DHIS2 server | [Install from App Hub](#install-from-app-hub) |
+| Connecting it to your antenatal program | [Configure the app](#configure-the-app) |
+| Running it on your computer to develop or demo | [Run it locally](#run-it-locally) |
+
+## Install from App Hub
+
+1. Open [DHIS2 App Hub](https://apps.dhis2.org/?query=Maternal%20Health%20Risk%20Alert) and install **Maternal Health Risk Alert** (v1.0.3 or later).
+2. In DHIS2, open **App Management** and confirm the app is installed.
+3. Open the app from the DHIS2 apps menu.
+4. Complete [configuration](#configure-the-app) before registering patients.
+
+Requires DHIS2 **2.38 or later**. It has been verified on **2.40.8**.
+
+You need permission to use Tracker programs and to write the app’s dataStore key (`maternal_health_risk_alert` / `config`). Ask a DHIS2 administrator if the Configuration page cannot save.
+
+## Configure the app
+
+The app does not assume Gambia (or any other country’s) metadata. On first use it asks you to map your instance.
+
+1. Open **Configuration**.
+2. Select your antenatal **tracker program** and visit **program stage**.
+3. Map attributes (name, age, village, phone, parity, previous complications) and visit data elements (blood pressure, haemoglobin, weight, and the rest).
+4. Optionally change risk scores, cutoffs, and colours.
+5. Save. Settings are stored in DHIS2 dataStore on that server.
+
+Until this mapping is valid, patient pages stay locked so the app cannot write to the wrong program.
+
+### Demo metadata (optional)
+
+If you want sample metadata instead of mapping an existing program, run the setup script against your DHIS2 server (default `http://localhost:8080`, user `admin` / `district`):
+
+```bash
+# Linux and macOS
+chmod +x setup-dhis2.sh
+./setup-dhis2.sh
+```
+
+```powershell
+# Windows
+.\setup-dhis2.ps1
+```
+
+The script attaches two demo clinics under an **existing** country-level organisation unit. It only creates a new root organisation unit if the server has none.
+
+## Daily use
+
+1. **Register patient** — name, age, village, facility, gestational age, parity. Phone number is optional; if entered it must be a valid number.
+2. **Record visit** — blood pressure, haemoglobin, weight, and gestational age are required.
+3. **Patients** and **Dashboard** — see who is enrolled and how risk is distributed.
+4. **Risk alerts** — work through high and moderate cases.
 
 ## Screenshots
 
@@ -21,87 +77,38 @@ Maternal Health Risk Alert was built to help close that gap. The app automatical
 ### Patients list
 ![Patients list](screenshots/screenshot-patients.png)
 
-### Patient register
+### Register patient
 ![Register patient](screenshots/screenshot-register.png)
 
 ### Risk alerts
 ![Risk alerts](screenshots/screenshot-risk-alert.png)
 
-## Overview
+## Default risk scores
 
-Maternal Health Risk Alert helps antenatal care teams identify high-risk pregnancies using routine DHIS2 tracker data. It analyzes each patient's clinical information as it is entered and highlights pregnancies that may need closer follow-up.
+These are the built-in scores. Change them in Configuration if your protocol differs.
 
-The app uses evidence-based clinical rules to score pregnancy risk based on vital signs, clinical findings, and obstetric history. Results are shown in real time across the dashboard, patient list, and risk alert views.
-
-## Features
-
-- Register pregnant women as Tracked Entity Instances in DHIS2 Tracker
-- Record ANC visits with blood pressure, haemoglobin, weight, malaria results, and danger signs
-- Automatic risk scoring using evidence-based clinical rules
-- **Fully Configurable Clinical Protocol**: UI controls for risk score weights, clinical thresholds/cutoffs, and alert badge colors
-- **Robust Field Validation**: Client-side regex phone number validation, age, BP (systolic > diastolic), and Hb checks
-- **Detailed Server Error Reporting**: Parses DHIS2 `validationReport` to display exact field validation errors
-- Colour-coded risk alerts dashboard for high, moderate, and normal risk
-- Patient visit history with blood pressure and haemoglobin trend charts
-- Runtime configuration page for mapping metadata to any DHIS2 instance
-- **Docker Stack**: Ready-to-use Docker Compose setup for local PostGIS + DHIS2 2.40.8 development
-- **Comprehensive Unit Test Suite**: Automated unit tests for risk engine, form validation, and configuration schema
-- Compatible with DHIS2 v2.38 and above (fully verified on v2.40.8)
-
-## Risk engine
-
-Default clinical scoring weights (customizable via Configuration UI):
-
-| Rule | Default Score | Category |
+| Rule | Default score | Typical level |
 |---|---|---|
 | Severe hypertension (BP 160/110 or above) | +50 | High |
 | Severe anaemia (Hb below 7 g/dL) | +45 | High |
 | Active malaria infection | +40 | High |
 | Hypertension (BP 140/90 or above) | +35 | High |
-| Moderate anaemia (Hb 7.0-7.9 g/dL) | +30 | High |
+| Moderate anaemia (Hb 7.0–7.9 g/dL) | +30 | High |
 | Late ANC booking (after week 13) | +20 to +30 | Moderate / High |
 | Adolescent pregnancy (age under 18) | +25 | High |
 | Danger signs reported | +25 per sign | High |
 | Grand multiparity (parity 4 or more) | +15 | Moderate |
 | Previous obstetric complications | +15 to +25 | Moderate / High |
 
-## Tech stack
+Default cutoffs: total score **40 or more** is high risk; **20 or more** is moderate risk.
 
-- DHIS2 App Platform & UI Library
-- React 18 & React Router v6
-- Recharts v2 for clinical trend visualization
-- DHIS2 Tracker APIs (v2.38 - v2.40+ backward and forward compatible)
-- Jest & React Testing Library for automated testing
-- Docker Compose (PostgreSQL 15 PostGIS + DHIS2 Core 2.40.8)
+## Why this project exists
 
-## Setup
+The Gambia recorded 130 maternal deaths in 2025, many linked to conditions such as pre-eclampsia, severe anaemia, and malaria that can be detected during antenatal care. In busy clinics, risk identification still often depends on manual review. This app scores the visit as soon as the data is entered so high-risk patients are flagged immediately.
 
-### Requirements
+## Run it locally
 
-- Node.js v20 or higher
-- A running DHIS2 instance v2.38 or above (or use our local Docker stack)
-- `curl` and `base64` tools if running setup scripts
-
-### Quickstart with Docker (Local DHIS2 Stack)
-
-Spins up a local PostgreSQL 15 PostGIS container and DHIS2 Core 2.40.8 container on `http://localhost:8080`:
-
-```bash
-# Start Docker services
-docker-compose up -d
-
-# Seed metadata & org units (in PowerShell or Bash)
-.\setup-dhis2.ps1
-
-# Start the dev server
-npm start
-```
-
-Default credentials:
-- Username: `admin`
-- Password: `district`
-
-### Install Dependencies
+You need **Node.js 20+**. For the bundled demo server you also need **Docker**.
 
 ```bash
 git clone https://github.com/mljadama/maternal-health-risk-alert.git
@@ -109,58 +116,57 @@ cd maternal-health-risk-alert
 npm install
 ```
 
-### Configure DHIS2 metadata
+### Option A — your own DHIS2
 
-The app requires a Tracker program with ANC visits. You can either:
+Point the app at a running instance, then start it:
 
-**Option 1: Use the setup script (recommended)**
-
-Windows (PowerShell):
-```powershell
-.\setup-dhis2.ps1
+```bash
+npm start
 ```
 
-macOS/Linux (Bash):
+The default proxy in `package.json` is `http://localhost:8080`. Open the URL printed in the terminal (usually `http://localhost:8081`). Log in with a DHIS2 user, then [configure the app](#configure-the-app).
+
+### Option B — Docker DHIS2 on this machine
+
 ```bash
-chmod +x setup-dhis2.sh
+docker compose up -d
+```
+
+Wait until DHIS2 answers at `http://localhost:8080` (first start can take several minutes). Log in with `admin` / `district`, then seed demo metadata:
+
+```bash
 ./setup-dhis2.sh
 ```
 
-These scripts detect existing level-1 organisation units and attach demo clinics under them. They never create an extra country-level root when a hierarchy already exists.
+Then:
 
-**Option 2: Manual configuration**
+```bash
+npm start
+```
 
-1. Open the app's **Configuration** page
-2. Select a tracker program from this DHIS2 instance (or paste UIDs)
-3. Map attributes and data elements
-4. Customize risk score weights, decision thresholds, and alert colours
-5. Save the configuration to `dataStore`
-
-## Testing
-
-Run the automated unit test suite:
+## Tests
 
 ```bash
 npm test -- --watchAll=false
 ```
 
-Tests cover:
-- **`riskEngine.test.js`**: All clinical scoring rules, thresholds, multi-factor calculations, and dynamic weight overrides.
-- **`validationUtils.test.js`**: Form input validators, optional phone numbers, BP systolic vs diastolic rules, and required visit fields.
-- **`appSettings.test.js`**: DHIS2 `dataStore` configuration normalization and UID validation.
-- **`trackerErrors.test.js`**: Distinguishes invalid field values from permission/sharing errors.
-- **`riskColors.test.js`**: Configurable alert colour palettes.
+This runs unit tests for the risk engine, form validation, configuration, error messages, and colours.
 
-## Deployment
-
-### Build and install into DHIS2
+## Build and install a zip
 
 ```bash
 npm run build
-curl.exe -X POST "http://your-dhis2/api/apps" -u "admin:password" \
+```
+
+The zip is written under `build/bundle/`. Install it in DHIS2 **App Management**, or upload it with:
+
+```bash
+curl -u "admin:district" -X POST "http://localhost:8080/api/apps" \
   -F "file=@build/bundle/Maternal Health Risk Alert-1.0.3.zip"
 ```
 
+Replace the URL, username, and password for your server.
+
 ## License
 
-BSD 3-Clause
+BSD 3-Clause. See [LICENSE](LICENSE).
