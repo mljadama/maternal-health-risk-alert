@@ -42,40 +42,43 @@ export default function Dashboard() {
 
   const highPct = s.total > 0 ? Math.round((s.highRisk / s.total) * 100) : 0
   const modPct = s.total > 0 ? Math.round((s.moderate / s.total) * 100) : 0
+  const normalPct = s.total > 0 ? Math.round((s.normal / s.total) * 100) : 0
 
   return (
     <div className={styles.page}>
       <div className={styles.header}>
-        <div>
-          <h1 className={styles.title}>Maternal Health Dashboard</h1>
-          <p className={styles.subtitle}>
-            {loading
-              ? 'Loading dashboard...'
-              : new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-          </p>
-        </div>
-        {!loading && s.total === 0 && <span className={`${styles.chip} ${styles.badgeNormal}`}>No patients yet</span>}
+        <h1 className={styles.title}>Maternal Health Dashboard</h1>
+        <p className={styles.headerMeta}>
+          {loading
+            ? 'Loading dashboard...'
+            : new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+        </p>
       </div>
 
       {loading ? (
         <div className={styles.empty}>Loading dashboard...</div>
       ) : (
         <>
-      <div className={styles.kpiGrid}>
+      <div className={`${styles.kpiGrid} ${styles.kpiGridFive}`}>
         <div className={styles.kpi}>
           <p className={styles.kpiLabel}>Total pregnancies</p>
           <p className={styles.kpiValue}>{s.total}</p>
           <p className={styles.kpiSub}>{s.totalVisits} total ANC visits</p>
         </div>
-        <div className={styles.kpi}>
+        <div className={`${styles.kpi} ${styles.kpiHigh}`}>
           <p className={styles.kpiLabel}>High risk</p>
           <p className={styles.kpiValue}>{s.highRisk}</p>
           <p className={styles.kpiSub}>{highPct}% of total</p>
         </div>
-        <div className={styles.kpi}>
+        <div className={`${styles.kpi} ${styles.kpiModerate}`}>
           <p className={styles.kpiLabel}>Moderate risk</p>
           <p className={styles.kpiValue}>{s.moderate}</p>
           <p className={styles.kpiSub}>{modPct}% of total</p>
+        </div>
+        <div className={`${styles.kpi} ${styles.kpiNormal}`}>
+          <p className={styles.kpiLabel}>Normal risk</p>
+          <p className={styles.kpiValue}>{s.normal}</p>
+          <p className={styles.kpiSub}>{normalPct}% of total</p>
         </div>
         <div className={styles.kpi}>
           <p className={styles.kpiLabel}>ANC completion</p>

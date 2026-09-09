@@ -1,86 +1,68 @@
 # Maternal Health Risk Alert
 
-A DHIS2 app that scores antenatal care visits as they are entered and flags high-risk pregnancies so clinic staff can follow up sooner.
+A DHIS2 app for antenatal care. Clinic staff register pregnant women, record visits, and get a colour-coded risk result as soon as the data is saved.
 
-Map it to **any** DHIS2 Tracker antenatal program. Risk rules, cutoffs, and colours can be changed per country or clinical protocol.
-
-## What the app does
-
-During a routine antenatal visit, a nurse records blood pressure, haemoglobin, malaria results, danger signs, and obstetric history. The app applies clinical rules and shows a colour-coded result:
+It works on **any** DHIS2 instance. Map it to your antenatal Tracker program, then use it like other DHIS2 apps from the apps menu.
 
 - **High risk** — needs urgent attention
 - **Moderate risk** — needs closer follow-up
 - **Normal** — continue the usual antenatal schedule
 
-Staff can register patients, record visits, view trends, and work from a risk-alerts list. Scoring weights, clinical cutoffs, and alert colours can be changed in the Configuration page.
+## Requirements
 
-## Who this README is for
+- DHIS2 **2.38** or later (verified on **2.40.8**)
+- An antenatal **Tracker** program (with registration)
+- Permission to use that program, and to save the app setting `maternal_health_risk_alert` / `config`
+- Users assigned to the health facilities (organisation units) they work in
 
-| You are | Start here |
-|---|---|
-| Installing the app on a DHIS2 server | [Install from App Hub](#install-from-app-hub) |
-| Connecting it to your antenatal program | [Configure the app](#configure-the-app) |
-| Running it on your computer to develop or demo | [Run it locally](#run-it-locally) |
+## Install
 
-## Install from App Hub
+Install it the same way as other DHIS2 apps.
 
-1. Open [DHIS2 App Hub](https://apps.dhis2.org/?query=Maternal%20Health%20Risk%20Alert) and install **Maternal Health Risk Alert** (v1.0.4 or later).
-2. In DHIS2, open **App Management** and confirm the app is installed.
+1. Open **App Management** in DHIS2.
+2. Install **Maternal Health Risk Alert** from [App Hub](https://apps.dhis2.org/?query=Maternal%20Health%20Risk%20Alert), or upload the zip from a [release build](#build-a-zip).
 3. Open the app from the DHIS2 apps menu.
-4. Complete [configuration](#configure-the-app) before registering patients.
+4. Complete **Configuration** once before anyone registers patients.
 
-Requires DHIS2 **2.38 or later**. It has been verified on **2.40.8**.
+If Configuration cannot save, ask a DHIS2 administrator to grant dataStore write access for this app.
 
-You need permission to use Tracker programs and to write the app’s dataStore key (`maternal_health_risk_alert` / `config`). Ask a DHIS2 administrator if the Configuration page cannot save.
+## Configure (once per server)
 
-## Configure the app
-
-The app does not assume any country’s metadata. On first use it asks you to map your instance.
+The app does not ship with one country’s metadata. On first use, map **your** program.
 
 1. Open **Configuration**.
 2. Select your antenatal **tracker program** and visit **program stage**.
-3. Map attributes (name, age, community/area, phone, parity, previous complications) and visit data elements (blood pressure, haemoglobin, weight, and the rest).
+3. Map attributes (name, age, community/area, phone, parity, previous complications) and visit data elements (blood pressure, haemoglobin, weight, gestational age, and the rest).
 4. Optionally change risk scores, cutoffs, and colours.
-5. Save. Settings are stored in DHIS2 dataStore on that server.
+5. Save. Settings stay on that DHIS2 server.
 
 Until this mapping is valid, patient pages stay locked so the app cannot write to the wrong program.
 
-### Demo metadata (optional)
+In DHIS2 **Users**, assign each nurse or midwife to the facilities they capture data for. The Register Patient facility list only shows organisation units assigned to the logged-in user.
 
-If you want sample metadata instead of mapping an existing program, run the setup script against your DHIS2 server (default `http://localhost:8080`, user `admin` / `district`):
+## Use the app
 
-```bash
-# Linux and macOS
-chmod +x setup-dhis2.sh
-./setup-dhis2.sh
-```
+| Page | What it is for |
+|---|---|
+| **Dashboard** | Pregnancies, risk counts (high / moderate / normal), ANC completion, and charts |
+| **Register Patient** | New enrolment. This **is the first ANC visit**, so gestational age, blood pressure, haemoglobin, and weight are required |
+| **Patients** | Search and open a record |
+| **Record visit** | Later ANC visits (visit 2 onwards) |
+| **Risk Alerts** | High and moderate cases that need follow-up |
+| **Configuration** | Program mapping and risk rules (usually an administrator) |
 
-```powershell
-# Windows
-.\setup-dhis2.ps1
-```
+Phone number is optional. If entered, it must be a valid number.
 
-The script attaches two demo clinics under an **existing** country-level organisation unit. It only creates a new root organisation unit if the server has none.
+Patients and visits are stored in **your** DHIS2 Tracker program. Other countries install the same app on their own server and map their own program and facilities.
 
-## Daily use
+### Screenshots
 
-1. **Register patient** — name, age, community/area, facility, gestational age, parity. Phone number is optional; if entered it must be a valid number.
-2. **Record visit** — blood pressure, haemoglobin, weight, and gestational age are required.
-3. **Patients** and **Dashboard** — see who is enrolled and how risk is distributed.
-4. **Risk alerts** — work through high and moderate cases.
-
-## Screenshots
-
-### Dashboard
 ![Dashboard](screenshots/screenshot-dashboard.png)
 
-### Patients list
 ![Patients list](screenshots/screenshot-patients.png)
 
-### Register patient
 ![Register patient](screenshots/screenshot-register.png)
 
-### Risk alerts
 ![Risk alerts](screenshots/screenshot-risk-alert.png)
 
 ## Default risk scores
@@ -93,10 +75,13 @@ These are the built-in scores. Change them in Configuration if your protocol dif
 | Severe anaemia (Hb below 7 g/dL) | +45 | High |
 | Active malaria infection | +40 | High |
 | Hypertension (BP 140/90 or above) | +35 | High |
-| Moderate anaemia (Hb 7.0–7.9 g/dL) | +30 | High |
+| Moderate anaemia (Hb below 8 g/dL) | +30 | High |
 | Late ANC booking (after week 13) | +20 to +30 | Moderate / High |
 | Adolescent pregnancy (age under 18) | +25 | High |
+| Insufficient ANC visits | +25 | High |
 | Danger signs reported | +25 per sign | High |
+| Mild anaemia (Hb below 11 g/dL) | +20 | Moderate |
+| Advanced maternal age (over 35) | +20 | Moderate |
 | Grand multiparity (parity 4 or more) | +15 | Moderate |
 | Previous obstetric complications | +15 to +25 | Moderate / High |
 
@@ -104,11 +89,13 @@ Default cutoffs: total score **40 or more** is high risk; **20 or more** is mode
 
 ## Why this project exists
 
-High-risk pregnancies are often missed when antenatal records are reviewed late or by hand. This app scores the visit as soon as the data is entered so hypertension, anaemia, malaria, danger signs, and obstetric history can trigger follow-up immediately.
+High-risk pregnancies are often missed when antenatal records are reviewed late or by hand. This app scores the visit when the data is entered so hypertension, anaemia, malaria, danger signs, and obstetric history can trigger follow-up immediately.
 
 It was first used in The Gambia. The same app is meant to be reused anywhere DHIS2 Tracker is used for antenatal care.
 
-## Run it locally
+---
+
+## For developers
 
 You need **Node.js 20+**. For the bundled demo server you also need **Docker**.
 
@@ -118,23 +105,7 @@ cd maternal-health-risk-alert
 npm install
 ```
 
-### Option A — your own DHIS2
-
-Point the app at a running instance, then start it:
-
-```bash
-npm start
-```
-
-The default proxy in `package.json` is no longer used. After `npm start`, open **http://localhost:3001**. If the Server field still shows `:8080` or `:8081`, replace it:
-
-- **Server:** `http://localhost:3001`
-- **Username:** a DHIS2 user (Docker demo: `admin`)
-- **Password:** that user’s password (Docker demo: `district`)
-
-Using `:8080` or `:8081` as the Server URL causes a CORS error. Those ports are DHIS2 itself, not this app. If login keeps hitting `:8081`, clear site data for `http://localhost:3001` (or Application → Local Storage → delete `DHIS2_BASE_URL`) and refresh.
-
-### Option B — Docker DHIS2 on this machine
+### Run against Docker DHIS2 on this machine
 
 ```bash
 docker compose up -d
@@ -143,8 +114,17 @@ docker compose up -d
 Wait until DHIS2 answers at `http://localhost:8080` (first start can take several minutes). Log in with `admin` / `district`, then seed demo metadata:
 
 ```bash
+# Linux and macOS
+chmod +x setup-dhis2.sh
 ./setup-dhis2.sh
 ```
+
+```powershell
+# Windows
+.\setup-dhis2.ps1
+```
+
+The script attaches two demo clinics under an existing country-level organisation unit. It only creates a new root organisation unit if the server has none. Do not run this against a live national server.
 
 Then:
 
@@ -152,17 +132,21 @@ Then:
 npm start
 ```
 
-Open **http://localhost:3001**, not the DHIS2 dashboard on port 8080. On the app sign-in form set **Server** to `http://localhost:3001`, then `admin` / `district`.
+Open **http://localhost:3001**. On the sign-in form set **Server** to `http://localhost:3001`, username `admin`, password `district`.
 
-## Tests
+Do not use `:8080` or `:8081` as the Server URL (that causes a CORS error). If login still uses those ports, clear site data for `http://localhost:3001` or delete `DHIS2_BASE_URL` from local storage and refresh.
+
+### Run against your own DHIS2
+
+Start the app with `npm start` and point the Server field at `http://localhost:3001` while the Vite proxy forwards `/api` to your instance (default `http://localhost:8080` in `vite.config.js`).
+
+### Tests
 
 ```bash
 npm test -- --watchAll=false
 ```
 
-This runs unit tests for the risk engine, form validation, configuration, error messages, and colours.
-
-## Build and install a zip
+### Build a zip
 
 ```bash
 npm run build
