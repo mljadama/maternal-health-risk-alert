@@ -87,14 +87,6 @@ These are the built-in scores. Change them in Configuration if your protocol dif
 
 Default cutoffs: total score **40 or more** is high risk; **20 or more** is moderate risk.
 
-## Why this project exists
-
-High-risk pregnancies are often missed when antenatal records are reviewed late or by hand. This app scores the visit when the data is entered so hypertension, anaemia, malaria, danger signs, and obstetric history can trigger follow-up immediately.
-
-It was first used in The Gambia. The same app is meant to be reused anywhere DHIS2 Tracker is used for antenatal care.
-
----
-
 ## For developers
 
 You need **Node.js 20+**. For the bundled demo server you also need **Docker**.
