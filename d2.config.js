@@ -3,8 +3,7 @@
 // DHIS2 App Platform configuration
 // Compatible with @dhis2/cli-app-scripts v12.x
 //
-// Proxy is configured via --proxy flag in package.json:
-//   d2-app-scripts start --proxy https://play.dhis2.org/demo
+// Proxy for local development is in vite.config.js (same-origin /api → Docker DHIS2).
 // ─────────────────────────────────────────────────────────────
 // d2.config.js
 const config = {
@@ -33,6 +32,7 @@ const config = {
     entryPoints: {
         app: './src/App.jsx',
     },
+    viteConfigExtensions: './vite.config.js',
 }
 
 module.exports = config

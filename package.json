@@ -12,7 +12,7 @@
     "license": "BSD-3-Clause",
     "private": true,
     "scripts": {
-        "start": "d2-app-scripts start --proxy http://localhost:8080 --proxyPort 8081",
+        "start": "PORT=3001 d2-app-scripts start",
         "build": "d2-app-scripts build",
         "test": "d2-app-scripts test",
         "postinstall": "node scripts/apply-dhis2-windows-patches.js",

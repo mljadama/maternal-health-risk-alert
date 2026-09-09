@@ -126,7 +126,13 @@ Point the app at a running instance, then start it:
 npm start
 ```
 
-The default proxy in `package.json` is `http://localhost:8080`. Open the URL printed in the terminal (usually `http://localhost:8081`). Log in with a DHIS2 user, then [configure the app](#configure-the-app).
+The default proxy in `package.json` is no longer used. After `npm start`, open **http://localhost:3001**. If the Server field still shows `:8080` or `:8081`, replace it:
+
+- **Server:** `http://localhost:3001`
+- **Username:** a DHIS2 user (Docker demo: `admin`)
+- **Password:** that user’s password (Docker demo: `district`)
+
+Using `:8080` or `:8081` as the Server URL causes a CORS error. Those ports are DHIS2 itself, not this app. If login keeps hitting `:8081`, clear site data for `http://localhost:3001` (or Application → Local Storage → delete `DHIS2_BASE_URL`) and refresh.
 
 ### Option B — Docker DHIS2 on this machine
 
@@ -145,6 +151,8 @@ Then:
 ```bash
 npm start
 ```
+
+Open **http://localhost:3001**, not the DHIS2 dashboard on port 8080. On the app sign-in form set **Server** to `http://localhost:3001`, then `admin` / `district`.
 
 ## Tests
 
