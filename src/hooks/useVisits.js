@@ -4,7 +4,6 @@
 
 import { useMemo } from 'react'
 import { useDhis2Config } from './useDhis2Config.js'
-import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
 import { useEngineListQuery } from './useEngineListQuery.js'
 import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
 
@@ -14,11 +13,6 @@ const getDV = (list = [], uid) =>
 export function useVisits(teiUid) {
     const { config, loading: configLoading } = useDhis2Config()
     const configValidation = useMemo(() => validateAppSettings(config), [config])
-    const {
-        preferredOrgUnitId,
-        meLoading,
-        meError,
-    } = useTrackerOrgUnitScope()
     const { dataElements } = config
 
     const configError = useMemo(() => {
@@ -31,22 +25,7 @@ export function useVisits(teiUid) {
         )
     }, [configValidation])
 
-    const trackerQueryParams = useMemo(() => {
-        if (preferredOrgUnitId) {
-            return {
-                orgUnit: preferredOrgUnitId,
-                ou: preferredOrgUnitId,
-                orgUnitMode: 'DESCENDANTS',
-                ouMode: 'DESCENDANTS',
-            }
-        }
-        return {
-            orgUnitMode: 'ACCESSIBLE',
-            ouMode: 'ACCESSIBLE',
-        }
-    }, [preferredOrgUnitId])
-
-    const shouldPauseQueries = !teiUid || configLoading || meLoading || Boolean(configError)
+    const shouldPauseQueries = !teiUid || configLoading || Boolean(configError)
     const canQuery = !shouldPauseQueries && Boolean(config.program?.id)
 
     const query = useMemo(() => {
@@ -58,7 +37,6 @@ export function useVisits(teiUid) {
                     program:       config.program.id,
                     programStage:  config.programStage.id,
                     trackedEntity: teiUid,
-                    ...trackerQueryParams,
                     fields:        'event,trackedEntity,occurredAt,orgUnit,orgUnitName,status,dataValues',
                     order:         'occurredAt:asc',
                     page:          1,
@@ -66,14 +44,14 @@ export function useVisits(teiUid) {
                 },
             },
         }
-    }, [canQuery, config.program.id, config.programStage.id, teiUid, trackerQueryParams])
+    }, [canQuery, config.program.id, config.programStage.id, teiUid])
 
     const { data, error, refetch } = useEngineListQuery({
         enabled: canQuery,
         query,
     })
 
-    const resolvedError = configError || meError || error
+    const resolvedError = configError || error
 
     const visits = useMemo(() => {
         if (!data) return []
@@ -110,7 +88,7 @@ export function useVisits(teiUid) {
     return {
         visits,
         chartData,
-        loading: configLoading || meLoading || (canQuery && !data && !error),
+        loading: configLoading || (canQuery && !data && !error),
         error: resolvedError,
         refetch,
     }

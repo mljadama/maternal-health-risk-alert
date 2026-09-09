@@ -4,7 +4,7 @@
 // and any cross-page data that multiple components need to share.
 // ─────────────────────────────────────────────────────────────
 
-import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useDataQuery, useDataEngine, useDataMutation } from '@dhis2/app-runtime'
 import {
   APP_SETTINGS_NAMESPACE,
@@ -168,24 +168,33 @@ export function AppProvider({ children }) {
   const [trackerError, setTrackerError] = useState(null)
   const [trackerEpoch, setTrackerEpoch] = useState(0)
   const [pendingPatients, setPendingPatients] = useState([])
+  const trackerFetchSeqRef = useRef(0)
+  const engineRef = useRef(engine)
+  engineRef.current = engine
 
   const config = useMemo(() => normalizeAppSettings(appSettings), [appSettings])
   const configValid = useMemo(() => validateAppSettings(config).isValid, [config])
+  const trackerScopeParam = useMemo(() => {
+    const scopeIds = trackerOrgUnitIds.length ? trackerOrgUnitIds : fallbackOrgUnitIds
+    return scopeIds.join(';')
+  }, [trackerOrgUnitIds, fallbackOrgUnitIds])
 
   useEffect(() => {
     if (appSettingsLoading || meLoading || !configValid || !config.program?.id) return undefined
 
     let active = true
-    const orgParams = preferredOrgUnitId
-      ? { orgUnit: preferredOrgUnitId, ou: preferredOrgUnitId, orgUnitMode: 'DESCENDANTS', ouMode: 'DESCENDANTS' }
+    const seq = ++trackerFetchSeqRef.current
+    const teiOrgParams = trackerScopeParam
+      ? { orgUnit: trackerScopeParam, ou: trackerScopeParam, orgUnitMode: 'DESCENDANTS', ouMode: 'DESCENDANTS' }
       : { orgUnitMode: 'ACCESSIBLE', ouMode: 'ACCESSIBLE' }
+    const eventsOrgParams = { orgUnitMode: 'ACCESSIBLE', ouMode: 'ACCESSIBLE' }
 
     const query = {
       patients: {
         resource: 'tracker/trackedEntities',
         params: {
           program: config.program.id,
-          ...orgParams,
+          ...teiOrgParams,
           fields: 'trackedEntity,trackedEntityInstance,id,orgUnit,attributes,enrollments[enrollment,enrolledAt,orgUnit,orgUnitName,status]',
           page: 1, pageSize: 500, order: 'enrolledAt:desc',
         },
@@ -195,7 +204,7 @@ export function AppProvider({ children }) {
         params: {
           program: config.program.id,
           programStage: config.programStage?.id,
-          ...orgParams,
+          ...eventsOrgParams,
           fields: 'event,trackedEntity,trackedEntityInstance,tei,occurredAt,orgUnit,orgUnitName,status,dataValues',
           page: 1, pageSize: 500, order: 'occurredAt:desc',
         },
@@ -209,15 +218,15 @@ export function AppProvider({ children }) {
     if (!trackerData) setTrackerLoading(true)
 
     const doFetch = () => {
-      engine.query(query)
+      engineRef.current.query(query)
         .then(result => {
-          if (!active) return
+          if (!active || seq !== trackerFetchSeqRef.current) return
           setTrackerData(result)
           setTrackerError(null)
           setTrackerLoading(false)
         })
         .catch(err => {
-          if (!active) return
+          if (!active || seq !== trackerFetchSeqRef.current) return
           setTrackerError(err)
           setTrackerLoading(false)
         })
@@ -231,9 +240,18 @@ export function AppProvider({ children }) {
 
     return () => {
       active = false
+      trackerFetchSeqRef.current++
       timers.forEach(window.clearTimeout)
     }
-  }, [appSettingsLoading, meLoading, configValid, config.program?.id, config.programStage?.id, preferredOrgUnitId, trackerEpoch, engine])
+  }, [
+    appSettingsLoading,
+    meLoading,
+    configValid,
+    config.program?.id,
+    config.programStage?.id,
+    trackerScopeParam,
+    trackerEpoch,
+  ])
 
   const refreshTracker = useCallback(() => setTrackerEpoch(Date.now()), [])
 
