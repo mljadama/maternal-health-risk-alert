@@ -38,7 +38,6 @@ const dhis2Config = {
 // Root component
 //
 // Uses DHIS2 UI library for consistent styling with other DHIS2 apps.
-// See UI_MIGRATION.md for details on component migration.
 // ─────────────────────────────────────────────────────────────
 function AppRoutes() {
     return (

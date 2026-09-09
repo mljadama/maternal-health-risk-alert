@@ -23,8 +23,8 @@ const config = {
         url: 'https://github.com/mljadama/maternal-health-risk-alert/issues',
     },
     documentation: {
-        user: 'https://github.com/mljadama/maternal-health-risk-alert#install-from-app-hub',
-        developer: 'https://github.com/mljadama/maternal-health-risk-alert#run-it-locally',
+        user: 'https://github.com/mljadama/maternal-health-risk-alert#install',
+        developer: 'https://github.com/mljadama/maternal-health-risk-alert#for-developers',
     },
     keywords: ['maternal-health', 'antenatal-care', 'pregnancy', 'risk-assessment', 'tracker', 'clinical-decision-support'],
     tags: ['maternal-health', 'antenatal-care', 'clinical-decision-support'],
