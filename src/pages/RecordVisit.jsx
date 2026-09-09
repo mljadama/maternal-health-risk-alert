@@ -1,10 +1,10 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useDataMutation, useDataQuery, useDataEngine } from '@dhis2/app-runtime'
+import { useDataEngine } from '@dhis2/app-runtime'
 import { getRiskLabel } from '../services/riskEngine.js'
 import { useDhis2Config } from '../hooks/useDhis2Config.js'
 import { useAppContext } from '../context/AppContext.jsx'
-import { useTrackerOrgUnitScope } from '../hooks/useTrackerOrgUnitScope.js'
+import { usePatient } from '../hooks/usePatients.js'
 import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
 import { validateVisitForm } from '../utils/validationUtils.js'
 import { formatTrackerError } from '../utils/trackerErrors.js'
@@ -30,13 +30,6 @@ const INIT = {
   nextVisitDate: '',
 }
 
-const TRACKER_MUTATION = {
-  resource: 'tracker',
-  type: 'create',
-  params: { async: false },
-  data: ({ payload }) => payload,
-}
-
 function extractEventErrorDetails(report) {
   if (!report) return ''
   const msgs = []
@@ -60,25 +53,24 @@ function extractEventErrorDetails(report) {
   return msgs.length ? msgs.join(' | ') : (report.description || report.message || '')
 }
 
-async function pollJob(engine, jobId, maxAttempts = 10) {
-  for (let i = 0; i < maxAttempts; i++) {
-    await new Promise(r => setTimeout(r, 1500))
-    try {
-      const result = await engine.query({
-        job: { resource: `tracker/jobs/${jobId}/report`, params: { reportMode: 'FULL' } },
-      })
-      const report = result?.job
-      if (report?.status === 'OK' || report?.status === 'WARNING') return { success: true }
-      if (report?.status === 'ERROR') {
-        const detail = extractEventErrorDetails(report) || 'Event save failed on DHIS2 server'
-        throw new Error(`DHIS2 server validation error: ${detail}`)
-      }
-    } catch (err) {
-      if (err.message.includes('failed') || err.message.includes('validation error')) throw err
-      // Ignore 404 or missing job report endpoints while polling
-    }
-  }
-  return { success: true }
+function getImportReport(result) {
+  return result?.response && typeof result.response === 'object'
+    ? result.response
+    : result
+}
+
+function importHasErrors(report) {
+  if (!report) return false
+  if (report.status === 'ERROR') return true
+  return Boolean(report.validationReport?.errorReports?.length)
+}
+
+function asList(payload, nestedKey) {
+  if (Array.isArray(payload)) return payload
+  if (Array.isArray(payload?.[nestedKey])) return payload[nestedKey]
+  if (Array.isArray(payload?.instances)) return payload.instances
+  if (Array.isArray(payload?.enrollments)) return payload.enrollments
+  return []
 }
 
 function validate(v) {
@@ -93,26 +85,10 @@ export default function RecordVisit() {
   const engine = useDataEngine()
   const { notifyTrackerChanged } = useAppContext()
   const { config, loading: configLoading } = useDhis2Config()
+  const { patient } = usePatient(teiUid)
   const configValidation = useMemo(() => validateAppSettings(config), [config])
-  const {
-    preferredOrgUnitId,
-    meLoading,
-    meError,
-  } = useTrackerOrgUnitScope()
   const malariaResults = config.malariaResults
   const dangerSignOptions = config.dangerSignOptions
-
-  const trackerQueryParams = useMemo(() => {
-    if (preferredOrgUnitId) {
-      return {
-        orgUnit: preferredOrgUnitId,
-        orgUnitMode: 'DESCENDANTS',
-      }
-    }
-    return {
-      orgUnitMode: 'ACCESSIBLE',
-    }
-  }, [preferredOrgUnitId])
 
   const configError = useMemo(() => {
     if (configValidation.isValid) return null
@@ -124,36 +100,51 @@ export default function RecordVisit() {
     )
   }, [configValidation])
 
-  const ENROLLMENT_QUERY = useMemo(() => ({
-    enrollment: {
-      resource: 'tracker/enrollments',
-      params: ({ teiUid }) => ({
-        trackedEntity: teiUid,
-        program: config.program.id,
-        ...trackerQueryParams,
-        fields: 'enrollment,orgUnit,orgUnitName',
-        page: 1,
-        pageSize: 500,
-      }),
-    },
-  }), [config.program.id, trackerQueryParams])
-
   const [vals, setVals] = useState(INIT)
   const [errs, setErrs] = useState({})
   const [saved, setSaved] = useState(false)
   const [assessment, setAssessment] = useState(null)
   const [formMessage, setFormMessage] = useState('')
   const [loadingText, setLoadingText] = useState(false)
+  const [enrollment, setEnrollment] = useState(null)
+  const [enrollmentError, setEnrollmentError] = useState(null)
 
-  const { data: enrData, error: enrollmentError } = useDataQuery(ENROLLMENT_QUERY, {
-    variables: { teiUid },
-    lazy: !teiUid || configLoading || meLoading || Boolean(configError),
-  })
-  const [mutate, { loading }] = useDataMutation(TRACKER_MUTATION)
+  useEffect(() => {
+    if (!teiUid || configLoading || configError || !config.program?.id) return undefined
 
-  const enrollment = enrData?.enrollment?.enrollments?.[0] ?? null
-  const orgUnit = enrollment?.orgUnit ?? null
-  const scopeError = configError || meError || enrollmentError
+    let active = true
+    engine.query({
+      tei: {
+        resource: `tracker/trackedEntities/${teiUid}`,
+        params: {
+          program: config.program.id,
+          fields: 'trackedEntity,orgUnit,enrollments[enrollment,orgUnit,orgUnitName,status]',
+        },
+      },
+    }).then(result => {
+      if (!active) return
+      const list = asList(result?.tei?.enrollments, 'enrollments')
+      const activeEnrollment = list.find(item => item?.status === 'ACTIVE') || list[0] || null
+      setEnrollment(activeEnrollment ? {
+        enrollment: activeEnrollment.enrollment,
+        orgUnit: activeEnrollment.orgUnit || result?.tei?.orgUnit || null,
+        orgUnitName: activeEnrollment.orgUnitName,
+        status: activeEnrollment.status,
+      } : null)
+      setEnrollmentError(null)
+    }).catch(err => {
+      if (!active) return
+      setEnrollmentError(err)
+    })
+
+    return () => {
+      active = false
+    }
+  }, [teiUid, configLoading, configError, config.program?.id, engine])
+
+  const orgUnit = enrollment?.orgUnit || patient?.orgUnit || null
+  const enrollmentUid = enrollment?.enrollment || patient?.enrollmentUid || null
+  const scopeError = configError || enrollmentError
 
   function ch(f, v) {
     setVals(p => ({ ...p, [f]: v }))
@@ -189,7 +180,11 @@ export default function RecordVisit() {
       return
     }
     if (!orgUnit) {
-      setFormMessage('Could not find enrollment org unit. Please try again.')
+      setFormMessage('Could not find the patient facility. Open the patient record and try again.')
+      return
+    }
+    if (!enrollmentUid) {
+      setFormMessage('Could not find the patient enrollment. Open the patient record and try again.')
       return
     }
     if (configError) {
@@ -206,7 +201,7 @@ export default function RecordVisit() {
           programStage: config.programStage.id,
           orgUnit,
           trackedEntity: teiUid,
-          enrollment: enrollment?.enrollment,
+          enrollment: enrollmentUid,
           occurredAt: vals.visitDate,
           scheduledAt: vals.visitDate,
           status: 'COMPLETED',
@@ -227,9 +222,17 @@ export default function RecordVisit() {
         }],
       }
 
-      const result = await mutate({ payload })
-      const jobId = result?.response?.id
-      if (jobId) await pollJob(engine, jobId)
+      const result = await engine.mutate({
+        resource: 'tracker',
+        type: 'create',
+        params: { async: false },
+        data: payload,
+      })
+      const report = getImportReport(result)
+      if (importHasErrors(report)) {
+        const detail = extractEventErrorDetails(report) || 'Event save failed on DHIS2 server'
+        throw new Error(`DHIS2 server validation error: ${detail}`)
+      }
 
       notifyTrackerChanged()
 
@@ -375,8 +378,8 @@ export default function RecordVisit() {
               <div />
             )}
             <div className={styles.actionsRight}>
-              <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleSubmit} disabled={loading || loadingText || saved}>
-                {loading || loadingText ? 'Saving...' : saved ? 'Visit saved' : 'Save ANC visit'}
+              <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleSubmit} disabled={loadingText || saved}>
+                {loadingText ? 'Saving...' : saved ? 'Visit saved' : 'Save ANC visit'}
               </button>
             </div>
           </div>
