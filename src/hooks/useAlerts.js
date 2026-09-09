@@ -1,97 +1,26 @@
 // src/hooks/useAlerts.js
+// Reads shared trackerData from AppContext and filters to at-risk patients.
+
 import { useMemo } from 'react'
 import { assessRisk, RISK_LEVELS } from '../services/riskEngine.js'
+import { useAppContext } from '../context/AppContext.jsx'
 import { useDhis2Config } from './useDhis2Config.js'
-import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
-import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
-import { useEngineListQuery } from './useEngineListQuery.js'
 
-// NOTE: Pagination is implemented to avoid performance issues on large deployments.
-// pageSize: 500 balances between memory usage and API calls. Can be adjusted based on system capacity.
 const getAttr = (list = [], uid) => list.find(a => a.attribute === uid)?.value ?? null
 const getDV   = (list = [], uid) => list.find(d => d.dataElement === uid)?.value ?? null
 
 export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODERATE] } = {}) {
     const { config, loading: configLoading } = useDhis2Config()
-    const configValidation = useMemo(() => validateAppSettings(config), [config])
     const {
-        preferredOrgUnitId,
-        meLoading,
-        meError,
-    } = useTrackerOrgUnitScope()
+        trackerData: data,
+        trackerLoading,
+        trackerError,
+        refreshTracker,
+    } = useAppContext()
     const { attributes, dataElements } = config
 
-    const configError = useMemo(() => {
-        if (configValidation.isValid) return null
-        return new Error(
-            buildConfigValidationMessage(
-                configValidation,
-                'Cannot load alerts because configuration is incomplete.'
-            )
-        )
-    }, [configValidation])
-
-    const trackerQueryParams = useMemo(() => {
-        if (preferredOrgUnitId) {
-            return {
-                orgUnit: preferredOrgUnitId,
-                ou: preferredOrgUnitId,
-                orgUnitMode: 'DESCENDANTS',
-                ouMode: 'DESCENDANTS',
-            }
-        }
-        return {
-            orgUnitMode: 'ACCESSIBLE',
-            ouMode: 'ACCESSIBLE',
-        }
-    }, [preferredOrgUnitId])
-
-    const shouldPauseQueries = configLoading || meLoading || Boolean(configError)
-    const canQuery = !shouldPauseQueries && Boolean(config.program?.id)
-
-    const query = useMemo(() => {
-        if (!canQuery) return null
-        return {
-            patients: {
-                resource: 'tracker/trackedEntities',
-                params: {
-                    program:   config.program.id,
-                    ...trackerQueryParams,
-                    fields:    'trackedEntity,orgUnit,attributes,enrollments[enrollment,enrolledAt,orgUnit,orgUnitName,status]',
-                    page:      1,
-                    pageSize:  500,
-                    order:     'enrolledAt:desc',
-                },
-            },
-            events: {
-                resource: 'tracker/events',
-                params: {
-                    program:      config.program.id,
-                    programStage: config.programStage.id,
-                    ...trackerQueryParams,
-                    fields:       'event,trackedEntity,occurredAt,orgUnit,orgUnitName,dataValues',
-                    page:         1,
-                    pageSize:     500,
-                    order:        'occurredAt:desc',
-                },
-            },
-            orgUnits: {
-                resource: 'organisationUnits',
-                params: {
-                    fields: 'id,displayName',
-                    pageSize: 500,
-                },
-            },
-        }
-    }, [canQuery, config.program.id, config.programStage.id, trackerQueryParams])
-
-    const { data, error: pe, refetch } = useEngineListQuery({
-        enabled: canQuery,
-        query,
-    })
-
-    const loading = configLoading || meLoading || (canQuery && !data && !pe)
-    const error   = configError || meError || pe
+    const loading = configLoading || trackerLoading || (!data && !trackerError)
+    const error = trackerError
 
     const ouMap = useMemo(() => {
         const map = {}
@@ -187,5 +116,5 @@ export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODER
             .sort((a, b) => b.assessment.score - a.assessment.score)
     }, [data, ouMap, includeLevels, config, attributes, dataElements])
 
-    return { alerts, loading, error, refetch }
+    return { alerts, loading, error, refetch: refreshTracker }
 }

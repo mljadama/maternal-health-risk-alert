@@ -1,33 +1,17 @@
 // src/hooks/usePatients.js
+// Reads shared trackerData from AppContext (fetched once on boot),
+// transforms into a patient list with risk assessments.
+
 import { useMemo } from 'react'
 import { assessConfiguredRisk } from '../utils/assessWithConfig.js'
 import { useAppContext } from '../context/AppContext.jsx'
 import { useDhis2Config } from './useDhis2Config.js'
-import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
-import { useEngineListQuery } from './useEngineListQuery.js'
-import {
-    validateAppSettings,
-    buildConfigValidationMessage,
-} from '../config/appSettings.js'
 
 const getAttr = (list = [], uid) =>
     list.find(a => a.attribute === uid)?.value ?? null
 
 const getDV = (list = [], uid) =>
     list.find(d => d.dataElement === uid)?.value ?? null
-
-function normalizeQueryError(error) {
-    if (!error) return null
-    const message = String(error?.message || '')
-
-    if (message.includes('(400)') || /\b400\b/.test(message)) {
-        return new Error(
-            'DHIS2 returned 400 while loading patients. Check Configuration and verify that Program, Program stage, Tracked entity type, and all mapped UIDs are valid for this instance.'
-        )
-    }
-
-    return error
-}
 
 function asList(payload, nestedKey) {
     if (Array.isArray(payload)) return payload
@@ -96,87 +80,17 @@ function mergePendingPatients(serverPatients, pendingPatients, config) {
 
 export function usePatients() {
     const { config, loading: configLoading } = useDhis2Config()
-    const { pendingPatients } = useAppContext()
-    const configValidation = useMemo(() => validateAppSettings(config), [config])
-    const configError = useMemo(() => {
-        if (configValidation.isValid) {
-            return null
-        }
-        return new Error(
-            buildConfigValidationMessage(
-                configValidation,
-                'Cannot load patients because configuration is incomplete.'
-            )
-        )
-    }, [configValidation])
     const {
-        preferredOrgUnitId,
-        meLoading,
-        meError,
-    } = useTrackerOrgUnitScope()
+        trackerData: data,
+        trackerLoading,
+        trackerError,
+        refreshTracker,
+        pendingPatients,
+    } = useAppContext()
     const { attributes, dataElements } = config
 
-    const trackerQueryParams = useMemo(() => {
-        if (preferredOrgUnitId) {
-            return {
-                orgUnit: preferredOrgUnitId,
-                ou: preferredOrgUnitId,
-                orgUnitMode: 'DESCENDANTS',
-                ouMode: 'DESCENDANTS',
-            }
-        }
-        return {
-            orgUnitMode: 'ACCESSIBLE',
-            ouMode: 'ACCESSIBLE',
-        }
-    }, [preferredOrgUnitId])
-
-    const shouldPauseQueries = configLoading || meLoading || Boolean(configError)
-    const canQuery = !shouldPauseQueries && Boolean(config.program?.id)
-
-    const query = useMemo(() => {
-        if (!canQuery) return null
-        return {
-            patients: {
-                resource: 'tracker/trackedEntities',
-                params: {
-                    program: config.program.id,
-                    ...trackerQueryParams,
-                    fields:  'trackedEntity,orgUnit,attributes,enrollments[enrollment,enrolledAt,orgUnit,orgUnitName,status]',
-                    page:    1,
-                    pageSize: 500,
-                },
-            },
-            events: {
-                resource: 'tracker/events',
-                params: {
-                    program:  config.program.id,
-                    ...trackerQueryParams,
-                    fields:   'event,trackedEntity,occurredAt,orgUnit,orgUnitName,dataValues',
-                    page:     1,
-                    pageSize: 500,
-                    order:    'occurredAt:desc',
-                },
-            },
-            orgUnits: {
-                resource: 'organisationUnits',
-                params: {
-                    fields:  'id,displayName',
-                    userOnly: true,
-                    pageSize: 500,
-                },
-            },
-        }
-    }, [canQuery, config.program.id, trackerQueryParams])
-
-    const { data, error: pe, refetch } = useEngineListQuery({
-        enabled: canQuery,
-        query,
-    })
-
-    const loading = configLoading || meLoading || (canQuery && !data && !pe && !pendingPatients.length)
-    const queryError = normalizeQueryError(meError || pe)
-    const error = configError || queryError
+    const loading = configLoading || trackerLoading || (!data && !trackerError && !pendingPatients.length)
+    const error = trackerError
 
     const ouMap = useMemo(() => {
         const map = {}
@@ -188,6 +102,8 @@ export function usePatients() {
     }, [data])
 
     const patients = useMemo(() => {
+        if (!data) return mergePendingPatients([], pendingPatients, config)
+
         const rawTeis = asList(data?.patients, 'trackedEntities')
         const events = asList(data?.events, 'events')
 
@@ -279,7 +195,7 @@ export function usePatients() {
         patients,
         loading,
         error,
-        configReady: !shouldPauseQueries,
-        refetch,
+        configReady: !configLoading,
+        refetch: refreshTracker,
     }
 }

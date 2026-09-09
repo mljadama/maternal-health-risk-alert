@@ -12,6 +12,7 @@ import {
   DEFAULT_APP_SETTINGS,
   normalizeAppSettings,
   buildAppSettingsPayload,
+  validateAppSettings,
 } from '../config/appSettings.js'
 
 // ── DHIS2 me query ────────────────────────────────────────────
@@ -161,8 +162,81 @@ export function AppProvider({ children }) {
     return saveAppSettings(DEFAULT_APP_SETTINGS)
   }, [saveAppSettings])
 
+  // ── Shared Tracker data (fetched once, used by every page) ────
+  const [trackerData, setTrackerData] = useState(null)
+  const [trackerLoading, setTrackerLoading] = useState(false)
+  const [trackerError, setTrackerError] = useState(null)
   const [trackerEpoch, setTrackerEpoch] = useState(0)
   const [pendingPatients, setPendingPatients] = useState([])
+
+  const config = useMemo(() => normalizeAppSettings(appSettings), [appSettings])
+  const configValid = useMemo(() => validateAppSettings(config).isValid, [config])
+
+  useEffect(() => {
+    if (appSettingsLoading || meLoading || !configValid || !config.program?.id) return undefined
+
+    let active = true
+    const orgParams = preferredOrgUnitId
+      ? { orgUnit: preferredOrgUnitId, ou: preferredOrgUnitId, orgUnitMode: 'DESCENDANTS', ouMode: 'DESCENDANTS' }
+      : { orgUnitMode: 'ACCESSIBLE', ouMode: 'ACCESSIBLE' }
+
+    const query = {
+      patients: {
+        resource: 'tracker/trackedEntities',
+        params: {
+          program: config.program.id,
+          ...orgParams,
+          fields: 'trackedEntity,trackedEntityInstance,id,orgUnit,attributes,enrollments[enrollment,enrolledAt,orgUnit,orgUnitName,status]',
+          page: 1, pageSize: 500, order: 'enrolledAt:desc',
+        },
+      },
+      events: {
+        resource: 'tracker/events',
+        params: {
+          program: config.program.id,
+          programStage: config.programStage?.id,
+          ...orgParams,
+          fields: 'event,trackedEntity,trackedEntityInstance,tei,occurredAt,orgUnit,orgUnitName,status,dataValues',
+          page: 1, pageSize: 500, order: 'occurredAt:desc',
+        },
+      },
+      orgUnits: {
+        resource: 'organisationUnits',
+        params: { fields: 'id,displayName', userOnly: true, pageSize: 500 },
+      },
+    }
+
+    if (!trackerData) setTrackerLoading(true)
+
+    const doFetch = () => {
+      engine.query(query)
+        .then(result => {
+          if (!active) return
+          setTrackerData(result)
+          setTrackerError(null)
+          setTrackerLoading(false)
+        })
+        .catch(err => {
+          if (!active) return
+          setTrackerError(err)
+          setTrackerLoading(false)
+        })
+    }
+
+    doFetch()
+
+    const timers = trackerEpoch
+      ? [800, 2200, 4500].map(ms => window.setTimeout(doFetch, ms))
+      : []
+
+    return () => {
+      active = false
+      timers.forEach(window.clearTimeout)
+    }
+  }, [appSettingsLoading, meLoading, configValid, config.program?.id, config.programStage?.id, preferredOrgUnitId, trackerEpoch, engine])
+
+  const refreshTracker = useCallback(() => setTrackerEpoch(Date.now()), [])
+
   const notifyTrackerChanged = useCallback((draftPatient) => {
     setTrackerEpoch(Date.now())
     if (draftPatient && typeof draftPatient === 'object') {
@@ -205,6 +279,10 @@ export function AppProvider({ children }) {
     fallbackOrgUnitIds,
     preferredOrgUnitId,
 
+    trackerData,
+    trackerLoading,
+    trackerError,
+    refreshTracker,
     trackerEpoch,
     pendingPatients,
     notifyTrackerChanged,

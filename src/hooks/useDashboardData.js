@@ -1,13 +1,10 @@
 // src/hooks/useDashboardData.js
-// Aggregated stats for the dashboard from DHIS2 v42
+// Reads shared trackerData from AppContext and computes dashboard stats.
 
 import { useMemo } from 'react'
 import { assessRisk, RISK_LEVELS } from '../services/riskEngine.js'
 import { useAppContext } from '../context/AppContext.jsx'
 import { useDhis2Config } from './useDhis2Config.js'
-import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
-import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
-import { useEngineListQuery } from './useEngineListQuery.js'
 
 const getAttr = (list = [], uid) => list.find(a => a.attribute === uid)?.value ?? null
 const getDV   = (list = [], uid) => list.find(d => d.dataElement === uid)?.value ?? null
@@ -65,79 +62,16 @@ function buildCompletion(patients, byTEI) {
 
 export function useDashboardData() {
     const { config, loading: configLoading } = useDhis2Config()
-    const { pendingPatients } = useAppContext()
-    const configValidation = useMemo(() => validateAppSettings(config), [config])
     const {
-        preferredOrgUnitId,
-        meLoading,
-        meError,
-    } = useTrackerOrgUnitScope()
+        trackerData: data,
+        trackerLoading,
+        trackerError,
+        pendingPatients,
+    } = useAppContext()
     const { attributes, dataElements } = config
 
-    const configError = useMemo(() => {
-        if (configValidation.isValid) return null
-        return new Error(
-            buildConfigValidationMessage(
-                configValidation,
-                'Cannot load the dashboard because configuration is incomplete.'
-            )
-        )
-    }, [configValidation])
-
-    const trackerQueryParams = useMemo(() => {
-        if (preferredOrgUnitId) {
-            return {
-                orgUnit: preferredOrgUnitId,
-                ou: preferredOrgUnitId,
-                orgUnitMode: 'DESCENDANTS',
-                ouMode: 'DESCENDANTS',
-            }
-        }
-        return {
-            orgUnitMode: 'ACCESSIBLE',
-            ouMode: 'ACCESSIBLE',
-        }
-    }, [preferredOrgUnitId])
-
-    const programId = config.program?.id
-    const programStageId = config.programStage?.id
-    const shouldPauseQueries = configLoading || meLoading || Boolean(configError) || !programId
-    const canQuery = !shouldPauseQueries
-
-    const query = useMemo(() => {
-        if (!canQuery) return null
-        return {
-            patients: {
-                resource: 'tracker/trackedEntities',
-                params: {
-                    program: programId,
-                    ...trackerQueryParams,
-                    fields:  'trackedEntity,trackedEntityInstance,id,attributes,enrollments[enrollment,enrolledAt,orgUnit]',
-                    page: 1,
-                    pageSize: 500,
-                },
-            },
-            events: {
-                resource: 'tracker/events',
-                params: {
-                    program:      programId,
-                    programStage: programStageId,
-                    ...trackerQueryParams,
-                    fields:       'event,trackedEntity,trackedEntityInstance,tei,occurredAt,dataValues',
-                    page: 1,
-                    pageSize: 500,
-                },
-            },
-        }
-    }, [canQuery, programId, programStageId, trackerQueryParams])
-
-    const { data, error: pe } = useEngineListQuery({
-        enabled: canQuery,
-        query,
-    })
-
-    const loading = configLoading || meLoading || (canQuery && !data && !pe && !pendingPatients.length)
-    const error   = configError || meError || pe
+    const loading = configLoading || trackerLoading || (!data && !trackerError && !pendingPatients.length)
+    const error = trackerError
 
     const stats = useMemo(() => {
         const teisArr = asList(data?.patients, 'trackedEntities')
