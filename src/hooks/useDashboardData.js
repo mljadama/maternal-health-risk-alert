@@ -89,34 +89,36 @@ export function useDashboardData() {
         }
     }, [preferredOrgUnitId])
 
-    const shouldPauseQueries = configLoading || meLoading || Boolean(configError) || !config.program?.id
+    const programId = config.program?.id
+    const programStageId = config.programStage?.id
+    const shouldPauseQueries = configLoading || meLoading || Boolean(configError) || !programId
 
     const PATIENTS_QUERY = useMemo(() => ({
         patients: {
             resource: 'tracker/trackedEntities',
             params: {
-                program: config.program.id,
+                program: programId,
                 ...trackerQueryParams,
                 fields:  'trackedEntity,trackedEntityInstance,id,attributes,enrollments[enrollment,enrolledAt,orgUnit]',
                 page: 1,
                 pageSize: 500,
             },
         },
-    }), [config.program.id, trackerQueryParams])
+    }), [programId, trackerQueryParams])
 
     const EVENTS_QUERY = useMemo(() => ({
         events: {
             resource: 'tracker/events',
             params: {
-                program:      config.program.id,
-                programStage: config.programStage.id,
+                program:      programId,
+                programStage: programStageId,
                 ...trackerQueryParams,
                 fields:       'event,trackedEntity,trackedEntityInstance,tei,occurredAt,dataValues',
                 page: 1,
                 pageSize: 500,
             },
         },
-    }), [config.program.id, config.programStage.id, trackerQueryParams])
+    }), [programId, programStageId, trackerQueryParams])
 
     const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: true })
     const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: true })
@@ -126,7 +128,7 @@ export function useDashboardData() {
             rp()
             re()
         }
-    }, [shouldPauseQueries, config.program.id, config.programStage.id])
+    }, [shouldPauseQueries, programId, programStageId])
 
     const loading = configLoading || meLoading || (!shouldPauseQueries && (pl || el) && !pData)
     const error   = configError || meError || (shouldPauseQueries ? null : (pe || ee))
