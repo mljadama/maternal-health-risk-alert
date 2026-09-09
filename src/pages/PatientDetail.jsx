@@ -57,14 +57,15 @@ export default function PatientDetail() {
   }
 
   const latestVisit = visits[visits.length - 1] ?? null
+  const currentGA = latestVisit?.gestationalAge ?? patient.gestationalAge ?? null
 
   const assessment = assessConfiguredRisk(
     config,
     { age: patient.age, parity: patient.parity, previousComplications: patient.prevComp },
     {
       totalVisits: visits.length,
-      currentWeek: latestVisit?.gestationalAge ?? 0,
-      firstVisitWeek: visits[0]?.gestationalAge,
+      currentWeek: currentGA ?? 0,
+      firstVisitWeek: visits[0]?.gestationalAge ?? patient.gestationalAge,
       latestBpSystolic: latestVisit?.bpSystolic,
       latestBpDiastolic: latestVisit?.bpDiastolic,
       latestHaemoglobin: latestVisit?.haemoglobin,
@@ -118,7 +119,7 @@ export default function PatientDetail() {
               <div className={styles.smallRow}><span>Parity</span><strong>{patient.parity ?? '-'}</strong></div>
               <div className={styles.smallRow}><span>Previous complications</span><strong>{patient.prevComp || 'None'}</strong></div>
               <div className={styles.smallRow}><span>Total ANC visits</span><strong>{visits.length}</strong></div>
-              <div className={styles.smallRow}><span>Current GA</span><strong>{latestVisit?.gestationalAge ? `${latestVisit.gestationalAge} weeks` : '-'}</strong></div>
+              <div className={styles.smallRow}><span>Current GA</span><strong>{currentGA ? `${currentGA} weeks` : '-'}</strong></div>
             </div>
           </div>
 

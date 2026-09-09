@@ -5,7 +5,7 @@ import { useRegisterPatient } from '../hooks/useRegisterPatient.js'
 import { useDhis2Config } from '../hooks/useDhis2Config.js'
 import { useAppContext } from '../context/AppContext.jsx'
 import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
-import { validatePatientForm } from '../utils/validationUtils.js'
+import { validatePatientForm, validateVisitForm } from '../utils/validationUtils.js'
 import styles from './FormPage.module.css'
 
 const STEPS = ['Personal details', 'Pregnancy info', 'Review & submit']
@@ -19,6 +19,10 @@ const INIT = {
   gestationalAge: '',
   parity: '',
   previousComplications: 'None',
+  bpSystolic: '',
+  bpDiastolic: '',
+  haemoglobin: '',
+  weight: '',
 }
 
 const ORG_UNITS_QUERY = {
@@ -42,6 +46,11 @@ function validate(values, step) {
   if (step === 1 || step === 'all') {
     if (fullErrors.gestationalAge) errors.gestationalAge = fullErrors.gestationalAge
     if (fullErrors.parity) errors.parity = fullErrors.parity
+    const visitErrors = validateVisitForm(values, { requireClinical: true })
+    if (visitErrors.bpSystolic) errors.bpSystolic = visitErrors.bpSystolic
+    if (visitErrors.bpDiastolic) errors.bpDiastolic = visitErrors.bpDiastolic
+    if (visitErrors.haemoglobin) errors.haemoglobin = visitErrors.haemoglobin
+    if (visitErrors.weight) errors.weight = visitErrors.weight
   }
 
   return errors
@@ -238,6 +247,33 @@ export default function RegisterPatient() {
                 <div className={styles.hint}>Most significant previous complication</div>
               </div>
 
+              <h3 className={styles.sectionTitle}>Booking visit measurements</h3>
+              <p className={styles.hint}>DHIS2 requires these on the first ANC visit.</p>
+              <div className={styles.grid2}>
+                <div className={styles.field}>
+                  <label className={styles.label}>Systolic BP</label>
+                  <input type="number" className={styles.input} value={vals.bpSystolic} onChange={e => change('bpSystolic', e.target.value)} onBlur={() => blur('bpSystolic')} min="60" max="250" />
+                  {errs.bpSystolic && <div className={styles.error}>{errs.bpSystolic}</div>}
+                </div>
+                <div className={styles.field}>
+                  <label className={styles.label}>Diastolic BP</label>
+                  <input type="number" className={styles.input} value={vals.bpDiastolic} onChange={e => change('bpDiastolic', e.target.value)} onBlur={() => blur('bpDiastolic')} min="40" max="150" />
+                  {errs.bpDiastolic && <div className={styles.error}>{errs.bpDiastolic}</div>}
+                </div>
+              </div>
+              <div className={styles.grid2}>
+                <div className={styles.field}>
+                  <label className={styles.label}>Haemoglobin (g/dL)</label>
+                  <input type="number" step="0.1" className={styles.input} value={vals.haemoglobin} onChange={e => change('haemoglobin', e.target.value)} onBlur={() => blur('haemoglobin')} min="3" max="20" />
+                  {errs.haemoglobin && <div className={styles.error}>{errs.haemoglobin}</div>}
+                </div>
+                <div className={styles.field}>
+                  <label className={styles.label}>Weight (kg)</label>
+                  <input type="number" step="0.1" className={styles.input} value={vals.weight} onChange={e => change('weight', e.target.value)} onBlur={() => blur('weight')} min="25" max="250" />
+                  {errs.weight && <div className={styles.error}>{errs.weight}</div>}
+                </div>
+              </div>
+
               {riskFlags.length > 0 && (
                 <div className={styles.alert}>Risk factors detected: {riskFlags.join(', ')}</div>
               )}
@@ -268,6 +304,9 @@ export default function RegisterPatient() {
                   ['Gestational age', vals.gestationalAge + ' weeks'],
                   ['Parity', vals.parity],
                   ['Previous complications', vals.previousComplications],
+                  ['Blood pressure', vals.bpSystolic && vals.bpDiastolic ? `${vals.bpSystolic}/${vals.bpDiastolic}` : ''],
+                  ['Haemoglobin', vals.haemoglobin ? `${vals.haemoglobin} g/dL` : ''],
+                  ['Weight', vals.weight ? `${vals.weight} kg` : ''],
                 ].map(([k, v]) => (
                   <div className={styles.reviewRow} key={k}><span>{k}</span><strong>{v || 'Not provided'}</strong></div>
                 ))}
@@ -278,7 +317,7 @@ export default function RegisterPatient() {
           {saved && (
             <div className={styles.success}>
               <h2 className={styles.successTitle}>Patient registered</h2>
-              <p className={styles.successText}>{vals.fullName} is now enrolled in the ANC program.</p>
+              <p className={styles.successText}>{vals.fullName} is now enrolled in the ANC program. Booking gestational age is saved on the visit record.</p>
               <div className={styles.actionsRight} style={{ justifyContent: 'center', marginTop: 12 }}>
                 <button className={styles.btn} onClick={() => { setVals(INIT); setStep(0); setSaved(false) }}>Register another</button>
                 <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => navigate('/patients')}>View patients</button>

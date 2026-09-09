@@ -1,24 +1,16 @@
 // src/hooks/useRegisterPatient.js
-// DHIS2 v42 Tracker API — POST /api/tracker
-//
-// v42 processes tracker requests asynchronously.
-// POST /api/tracker returns a job ID.
-// We then poll GET /api/tracker/jobs/{jobId} until complete.
+// DHIS2 Tracker API — POST /api/tracker
+// Creates the patient, enrollment, and a booking visit so gestational age
+// is available on the patient record and visit history.
 
-import { useDataMutation, useDataEngine } from '@dhis2/app-runtime'
+import { useDataEngine } from '@dhis2/app-runtime'
+import { useState } from 'react'
 import { useDhis2Config } from './useDhis2Config.js'
 import { formatTrackerError } from '../utils/trackerErrors.js'
 import {
     validateAppSettings,
     buildConfigValidationMessage,
 } from '../config/appSettings.js'
-
-const TRACKER_MUTATION = {
-    resource: 'tracker',
-    type:     'create',
-    params:   { async: false },
-    data:     ({ payload }) => payload,
-}
 
 function buildPayload(formValues, orgUnit, config) {
     const today = new Date().toISOString().split('T')[0]
@@ -37,60 +29,59 @@ function buildPayload(formValues, orgUnit, config) {
         })
     }
 
+    const bookingValues = []
+    const addBookingValue = (uid, value) => {
+        if (!uid || value === '' || value == null) return
+        bookingValues.push({ dataElement: uid, value: String(value) })
+    }
+
+    addBookingValue(config.dataElements.gestationalAge, formValues.gestationalAge)
+    addBookingValue(config.dataElements.visitNumber, '1')
+    addBookingValue(config.dataElements.bpSystolic, formValues.bpSystolic)
+    addBookingValue(config.dataElements.bpDiastolic, formValues.bpDiastolic)
+    addBookingValue(config.dataElements.haemoglobin, formValues.haemoglobin)
+    addBookingValue(config.dataElements.weight, formValues.weight)
+
+    const enrollment = {
+        program: config.program.id,
+        orgUnit,
+        enrolledAt: today,
+        occurredAt: today,
+        status: 'ACTIVE',
+    }
+
+    if (bookingValues.length && config.programStage?.id) {
+        enrollment.events = [{
+            program: config.program.id,
+            programStage: config.programStage.id,
+            orgUnit,
+            occurredAt: today,
+            scheduledAt: today,
+            status: 'COMPLETED',
+            dataValues: bookingValues,
+        }]
+    }
+
     return {
         trackedEntities: [
             {
                 trackedEntityType: config.trackedEntityType.id,
                 orgUnit,
                 attributes,
-                enrollments: [
-                    {
-                        program: config.program.id,
-                        orgUnit,
-                        enrolledAt: today,
-                        occurredAt: today,
-                    }
-                ],
-            }
+                enrollments: [enrollment],
+            },
         ],
     }
 }
 
-// Poll the tracker job until it completes (with 404 safety)
-async function pollJob(engine, jobId, maxAttempts = 10) {
-    for (let i = 0; i < maxAttempts; i++) {
-        await new Promise(r => setTimeout(r, 1500))
-        try {
-            const result = await engine.query({
-                job: {
-                    resource: `tracker/jobs/${jobId}/report`,
-                    params:   { reportMode: 'FULL' },
-                },
-            })
-            const report = result?.job
-            if (report?.status === 'OK' || report?.status === 'WARNING') {
-                const teiUid = report?.bundleReport?.typeReportMap?.TRACKED_ENTITY?.objectReports?.[0]?.uid
-                const enrUid = report?.bundleReport?.typeReportMap?.ENROLLMENT?.objectReports?.[0]?.uid
-                return { teiUid: teiUid || 'created', enrollmentUid: enrUid || 'created' }
-            }
-            if (report?.status === 'ERROR') {
-                throw new Error(
-                    formatTrackerError(
-                        { details: report },
-                        'Registration failed on DHIS2. Please verify patient data and try again.'
-                    )
-                )
-            }
-        } catch (err) {
-            if (
-                err.message.includes('Registration failed') ||
-                err.message.includes('not valid') ||
-                err.message.includes('permission')
-            ) throw err
-            // Ignore 404 or missing job report endpoints while polling
-        }
-    }
-    return { teiUid: 'created', enrollmentUid: null }
+function getImportReport(result) {
+    return result?.response && typeof result.response === 'object'
+        ? result.response
+        : result
+}
+
+function extractUid(report, trackerType) {
+    return report?.bundleReport?.typeReportMap?.[trackerType]?.objectReports?.[0]?.uid || null
 }
 
 function normalizeRegistrationError(error) {
@@ -100,9 +91,10 @@ function normalizeRegistrationError(error) {
 }
 
 export function useRegisterPatient() {
-    const [mutate, { loading, error }] = useDataMutation(TRACKER_MUTATION)
     const engine = useDataEngine()
     const { config, loading: configLoading } = useDhis2Config()
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState(null)
 
     async function register(formValues, orgUnit) {
         const configValidation = validateAppSettings(config)
@@ -115,41 +107,38 @@ export function useRegisterPatient() {
             )
         }
 
-        let result
+        setLoading(true)
+        setError(null)
+
         try {
-            const payload = buildPayload(formValues, orgUnit, config)
-            result = await mutate({ payload })
-        } catch (error) {
-            throw normalizeRegistrationError(error)
-        }
-
-        const report = result?.response || result
-        if (report?.status === 'ERROR') {
-            throw new Error(
-                formatTrackerError(
-                    { details: report },
-                    'Registration failed on DHIS2. Please verify patient data and try again.'
+            const result = await engine.mutate({
+                resource: 'tracker',
+                type: 'create',
+                params: { async: false },
+                data: buildPayload(formValues, orgUnit, config),
+            })
+            const report = getImportReport(result)
+            if (report?.status === 'ERROR' || report?.validationReport?.errorReports?.length) {
+                throw new Error(
+                    formatTrackerError(
+                        { details: report },
+                        'Registration failed on DHIS2. Please verify patient data and try again.'
+                    )
                 )
-            )
+            }
+
+            return {
+                teiUid: extractUid(report, 'TRACKED_ENTITY') || 'created',
+                enrollmentUid: extractUid(report, 'ENROLLMENT') || null,
+                eventUid: extractUid(report, 'EVENT') || null,
+            }
+        } catch (err) {
+            const normalized = normalizeRegistrationError(err)
+            setError(normalized)
+            throw normalized
+        } finally {
+            setLoading(false)
         }
-
-        // 1. Synchronous response (when async: false)
-        const teiUid =
-            report?.bundleReport?.typeReportMap?.TRACKED_ENTITY?.objectReports?.[0]?.uid ||
-            report?.uid ||
-            null
-
-        if (teiUid) {
-            return { teiUid, enrollmentUid: null }
-        }
-
-        // 2. Async job fallback (if DHIS2 queued job)
-        const jobId = report?.id
-        if (jobId) {
-            return await pollJob(engine, jobId)
-        }
-
-        return { teiUid: 'created', enrollmentUid: null }
     }
 
     return { register, loading: loading || configLoading, error }

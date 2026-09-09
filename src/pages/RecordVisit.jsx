@@ -5,6 +5,7 @@ import { getRiskLabel } from '../services/riskEngine.js'
 import { useDhis2Config } from '../hooks/useDhis2Config.js'
 import { useAppContext } from '../context/AppContext.jsx'
 import { usePatient } from '../hooks/usePatients.js'
+import { useVisits } from '../hooks/useVisits.js'
 import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
 import { validateVisitForm } from '../utils/validationUtils.js'
 import { formatTrackerError } from '../utils/trackerErrors.js'
@@ -86,6 +87,7 @@ export default function RecordVisit() {
   const { notifyTrackerChanged } = useAppContext()
   const { config, loading: configLoading } = useDhis2Config()
   const { patient } = usePatient(teiUid)
+  const { visits, loading: visitsLoading } = useVisits(teiUid)
   const configValidation = useMemo(() => validateAppSettings(config), [config])
   const malariaResults = config.malariaResults
   const dangerSignOptions = config.dangerSignOptions
@@ -108,6 +110,11 @@ export default function RecordVisit() {
   const [loadingText, setLoadingText] = useState(false)
   const [enrollment, setEnrollment] = useState(null)
   const [enrollmentError, setEnrollmentError] = useState(null)
+  const [prefilled, setPrefilled] = useState(false)
+
+  useEffect(() => {
+    setPrefilled(false)
+  }, [teiUid])
 
   useEffect(() => {
     if (!teiUid || configLoading || configError || !config.program?.id) return undefined
@@ -141,6 +148,18 @@ export default function RecordVisit() {
       active = false
     }
   }, [teiUid, configLoading, configError, config.program?.id, engine])
+
+  useEffect(() => {
+    if (prefilled || visitsLoading) return
+    const latest = visits[visits.length - 1]
+    const ga = latest?.gestationalAge ?? patient?.gestationalAge
+    setVals(current => ({
+      ...current,
+      visitNumber: visits.length + 1,
+      gestationalAge: ga != null && ga !== '' ? String(ga) : current.gestationalAge,
+    }))
+    setPrefilled(true)
+  }, [prefilled, visitsLoading, visits, patient])
 
   const orgUnit = enrollment?.orgUnit || patient?.orgUnit || null
   const enrollmentUid = enrollment?.enrollment || patient?.enrollmentUid || null
