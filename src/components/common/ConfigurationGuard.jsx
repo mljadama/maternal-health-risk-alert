@@ -1,19 +1,26 @@
 import React, { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Box, Button, NoticeBox } from '@dhis2/ui'
+import { Box, Button, CircularLoader, NoticeBox } from '@dhis2/ui'
 import { useAppContext } from '../../context/AppContext.jsx'
 import { validateAppSettings } from '../../config/appSettings.js'
 
 export default function ConfigurationGuard({ children }) {
   const navigate = useNavigate()
-  const { appSettings } = useAppContext()
+  const { appSettings, appSettingsLoading } = useAppContext()
   const validation = useMemo(() => validateAppSettings(appSettings), [appSettings])
+
+  if (appSettingsLoading) {
+    return (
+      <Box padding="24px">
+        <CircularLoader />
+      </Box>
+    )
+  }
 
   if (validation.isValid) {
     return children
   }
 
-  // Configuration incomplete — show setup banner
   return (
     <Box padding="24px">
       <NoticeBox
@@ -52,8 +59,6 @@ export default function ConfigurationGuard({ children }) {
           <li>Paste these UIDs into the Configuration page</li>
         </ol>
       </NoticeBox>
-
-      {children}
     </Box>
   )
 }

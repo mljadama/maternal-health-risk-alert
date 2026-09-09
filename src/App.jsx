@@ -49,10 +49,13 @@ function AppRoutes() {
                 element={<Navigate to="/dashboard" replace />}
             />
 
-            {/* Dashboard — KPI cards, charts, alert summary (no guard needed) */}
             <Route
                 path="/dashboard"
-                element={<Dashboard />}
+                element={
+                    <ConfigurationGuard>
+                        <Dashboard />
+                    </ConfigurationGuard>
+                }
             />
 
             {/* Configuration — metadata mapping (no guard needed) */}

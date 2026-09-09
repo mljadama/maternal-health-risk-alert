@@ -89,7 +89,7 @@ export function useDashboardData() {
         }
     }, [preferredOrgUnitId])
 
-    const shouldPauseQueries = configLoading || meLoading || Boolean(configError)
+    const shouldPauseQueries = configLoading || meLoading || Boolean(configError) || !config.program?.id
 
     const PATIENTS_QUERY = useMemo(() => ({
         patients: {
@@ -126,10 +126,10 @@ export function useDashboardData() {
             rp()
             re()
         }
-    }, [shouldPauseQueries, rp, re])
+    }, [shouldPauseQueries, config.program.id, config.programStage.id])
 
-    const loading = pl || el || configLoading || meLoading
-    const error   = configError || meError || pe || ee
+    const loading = configLoading || meLoading || (!shouldPauseQueries && (pl || el) && !pData)
+    const error   = configError || meError || (shouldPauseQueries ? null : (pe || ee))
 
     const stats = useMemo(() => {
         if (!pData) return null
@@ -219,4 +219,4 @@ export function useDashboardData() {
     }, [pData, eData, config])
 
     return { stats, loading, error }
-}
+}
