@@ -24,18 +24,19 @@ export function useEngineListQuery({ enabled, query }) {
     useEffect(() => {
         if (!queryKey) return undefined
 
+        let active = true
         const seq = ++seqRef.current
 
         const doFetch = () => {
             engineRef.current
                 .query(queryRef.current)
                 .then(result => {
-                    if (seq !== seqRef.current) return
+                    if (!active || seq !== seqRef.current) return
                     setData(result)
                     setError(null)
                 })
                 .catch(err => {
-                    if (seq !== seqRef.current) return
+                    if (!active || seq !== seqRef.current) return
                     setError(err)
                 })
         }
@@ -47,7 +48,7 @@ export function useEngineListQuery({ enabled, query }) {
             : []
 
         return () => {
-            seqRef.current++
+            active = false
             timers.forEach(window.clearTimeout)
         }
     }, [queryKey, trackerEpoch, tick])

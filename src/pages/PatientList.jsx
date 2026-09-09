@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePatients } from '../hooks/usePatients.js'
+import { useAppContext } from '../context/AppContext.jsx'
 import { useDhis2Config } from '../hooks/useDhis2Config.js'
 import { getRiskLabel } from '../services/riskEngine.js'
 import { getConfiguredRiskColors } from '../utils/riskColors.js'
@@ -14,6 +15,7 @@ function levelClass(level) {
 
 export default function PatientList() {
   const navigate = useNavigate()
+  const { setCurrentPatient } = useAppContext()
   const { config } = useDhis2Config()
   const { patients, loading, error, refetch } = usePatients()
   const colors = getConfiguredRiskColors(config)
@@ -156,6 +158,7 @@ export default function PatientList() {
                   return (
                     <tr key={p.teiUid} className={styles.trClickable} onClick={() => {
                       if (String(p.teiUid).startsWith('pending-')) return
+                      setCurrentPatient(p)
                       navigate(`/patients/${p.teiUid}`)
                     }} style={{ borderLeft: `3px solid ${cfg.main}` }}>
                       <td className={styles.td}>

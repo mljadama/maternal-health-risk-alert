@@ -2,7 +2,8 @@
 // Reads shared trackerData from AppContext (fetched once on boot),
 // transforms into a patient list with risk assessments.
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useDataEngine } from '@dhis2/app-runtime'
 import { assessConfiguredRisk } from '../utils/assessWithConfig.js'
 import { useAppContext } from '../context/AppContext.jsx'
 import { useDhis2Config } from './useDhis2Config.js'
@@ -78,6 +79,65 @@ function mergePendingPatients(serverPatients, pendingPatients, config) {
     return [...mapped, ...serverPatients]
 }
 
+function mapTeiToPatient(tei, visits, ouMap, config) {
+    const { attributes, dataElements } = config
+    const id = tei.trackedEntity || tei.trackedEntityInstance || tei.id
+    const latest = visits[0] ?? null
+    const firstVisit = visits[visits.length - 1] ?? null
+    const enrollment = tei.enrollments?.[0] ?? {}
+
+    const age = Number(getAttr(tei.attributes, attributes.age)) || null
+    const parity = Number(getAttr(tei.attributes, attributes.parity)) || 0
+    const prevComp = getAttr(tei.attributes, attributes.previousComplications)
+    const latestGA = latest ? Number(getDV(latest.dataValues, dataElements.gestationalAge)) : null
+    const firstGA = firstVisit ? Number(getDV(firstVisit.dataValues, dataElements.gestationalAge)) : null
+    const danger = latest
+        ? (getDV(latest.dataValues, dataElements.dangerSigns) || '')
+            .split(',').map(s => s.trim()).filter(Boolean)
+        : []
+
+    const facilityOrgUid = enrollment.orgUnit ?? tei.orgUnit
+    const facilityName =
+        enrollment.orgUnitName ||
+        ouMap[facilityOrgUid] ||
+        facilityOrgUid ||
+        '—'
+
+    const assessment = assessConfiguredRisk(
+        config,
+        { age, parity, previousComplications: prevComp },
+        {
+            totalVisits: visits.length,
+            currentWeek: latestGA ?? 0,
+            firstVisitWeek: firstGA,
+            latestBpSystolic: latest ? Number(getDV(latest.dataValues, dataElements.bpSystolic)) : null,
+            latestBpDiastolic: latest ? Number(getDV(latest.dataValues, dataElements.bpDiastolic)) : null,
+            latestHaemoglobin: latest ? Number(getDV(latest.dataValues, dataElements.haemoglobin)) : null,
+            latestMalariaResult: latest ? getDV(latest.dataValues, dataElements.malariaTestResult) : null,
+            dangerSigns: danger,
+        }
+    )
+
+    return {
+        teiUid: id,
+        name: getAttr(tei.attributes, attributes.fullName) ?? 'Unknown',
+        age,
+        village: getAttr(tei.attributes, attributes.village) ?? '—',
+        phoneNumber: getAttr(tei.attributes, attributes.phoneNumber) ?? '—',
+        parity,
+        prevComp,
+        facility: facilityName,
+        orgUnit: facilityOrgUid,
+        enrollmentUid: enrollment.enrollment ?? null,
+        enrollmentDate: enrollment.enrolledAt ?? null,
+        gestationalAge: latestGA,
+        totalVisits: visits.length,
+        lastVisitDate: latest?.occurredAt ?? null,
+        assessment,
+        rawVisits: visits,
+    }
+}
+
 export function usePatients() {
     const { config, loading: configLoading } = useDhis2Config()
     const {
@@ -129,64 +189,7 @@ export function usePatients() {
             arr.sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt))
         )
 
-        const fromServer = teis.map(tei => {
-            const id         = tei.trackedEntity
-            const visits     = byTEI[id] ?? []
-            const latest     = visits[0] ?? null
-            const firstVisit = visits[visits.length - 1] ?? null
-            const enrollment = tei.enrollments?.[0] ?? {}
-
-            const age      = Number(getAttr(tei.attributes, attributes.age))    || null
-            const parity   = Number(getAttr(tei.attributes, attributes.parity)) || 0
-            const prevComp = getAttr(tei.attributes, attributes.previousComplications)
-            const latestGA = latest ? Number(getDV(latest.dataValues, dataElements.gestationalAge)) : null
-            const firstGA  = firstVisit ? Number(getDV(firstVisit.dataValues, dataElements.gestationalAge)) : null
-            const danger   = latest
-                ? (getDV(latest.dataValues, dataElements.dangerSigns) || '')
-                    .split(',').map(s => s.trim()).filter(Boolean)
-                : []
-
-            const facilityOrgUid = enrollment.orgUnit ?? tei.orgUnit
-            const facilityName   =
-                enrollment.orgUnitName ||
-                ouMap[facilityOrgUid]  ||
-                facilityOrgUid         ||
-                '—'
-
-            const assessment = assessConfiguredRisk(
-                config,
-                { age, parity, previousComplications: prevComp },
-                {
-                    totalVisits:         visits.length,
-                    currentWeek:         latestGA ?? 0,
-                    firstVisitWeek:      firstGA,
-                    latestBpSystolic:    latest ? Number(getDV(latest.dataValues, dataElements.bpSystolic))    : null,
-                    latestBpDiastolic:   latest ? Number(getDV(latest.dataValues, dataElements.bpDiastolic))   : null,
-                    latestHaemoglobin:   latest ? Number(getDV(latest.dataValues, dataElements.haemoglobin))   : null,
-                    latestMalariaResult: latest ? getDV(latest.dataValues, dataElements.malariaTestResult)     : null,
-                    dangerSigns:         danger,
-                }
-            )
-
-            return {
-                teiUid:         id,
-                name:           getAttr(tei.attributes, attributes.fullName)    ?? 'Unknown',
-                age,
-                village:        getAttr(tei.attributes, attributes.village)     ?? '—',
-                phoneNumber:    getAttr(tei.attributes, attributes.phoneNumber) ?? '—',
-                parity,
-                prevComp,
-                facility:       facilityName,
-                orgUnit:        facilityOrgUid,
-                enrollmentUid:  enrollment.enrollment ?? null,
-                enrollmentDate: enrollment.enrolledAt ?? null,
-                gestationalAge: latestGA,
-                totalVisits:    visits.length,
-                lastVisitDate:  latest?.occurredAt ?? null,
-                assessment,
-                rawVisits:      visits,
-            }
-        })
+        const fromServer = teis.map(tei => mapTeiToPatient(tei, byTEI[tei.trackedEntity] ?? [], ouMap, config))
 
         return mergePendingPatients(fromServer, pendingPatients, config)
     }, [data, ouMap, attributes, dataElements, config, pendingPatients])
@@ -197,5 +200,78 @@ export function usePatients() {
         error,
         configReady: !configLoading,
         refetch: refreshTracker,
+    }
+}
+
+export function usePatient(teiUid) {
+    const { patients, loading: listLoading, error: listError } = usePatients()
+    const { currentPatient } = useAppContext()
+    const { config, loading: configLoading } = useDhis2Config()
+    const engine = useDataEngine()
+    const [fetched, setFetched] = useState(null)
+    const [fetching, setFetching] = useState(false)
+    const [fetchError, setFetchError] = useState(null)
+    const [lookupDone, setLookupDone] = useState(false)
+
+    const listed = useMemo(
+        () => patients.find(p => p.teiUid === teiUid) ?? null,
+        [patients, teiUid]
+    )
+    const fromContext = currentPatient?.teiUid === teiUid ? currentPatient : null
+
+    useEffect(() => {
+        setFetched(null)
+        setFetchError(null)
+        setFetching(false)
+        setLookupDone(false)
+    }, [teiUid])
+
+    useEffect(() => {
+        if (!teiUid || listed || listLoading || configLoading || !config.program?.id) {
+            if (listed) setLookupDone(true)
+            return undefined
+        }
+
+        let active = true
+        setFetching(true)
+        setFetchError(null)
+
+        engine.query({
+            patient: {
+                resource: 'tracker/trackedEntities',
+                params: {
+                    trackedEntity: teiUid,
+                    program: config.program.id,
+                    fields: 'trackedEntity,trackedEntityInstance,id,orgUnit,attributes,enrollments[enrollment,enrolledAt,orgUnit,orgUnitName,status]',
+                    page: 1,
+                    pageSize: 1,
+                },
+            },
+        }).then(result => {
+            if (!active) return
+            const raw = asList(result?.patient, 'trackedEntities')
+            const tei = raw[0] ?? (result?.patient?.trackedEntity ? result.patient : null)
+            setFetched(tei ? mapTeiToPatient(tei, [], {}, config) : null)
+            setFetching(false)
+            setLookupDone(true)
+        }).catch(err => {
+            if (!active) return
+            setFetchError(err)
+            setFetching(false)
+            setLookupDone(true)
+        })
+
+        return () => {
+            active = false
+        }
+    }, [teiUid, listed, listLoading, configLoading, config, engine])
+
+    const patient = listed || fetched || fromContext || null
+    const loading = Boolean(teiUid) && !patient && (listLoading || fetching || configLoading || !lookupDone)
+
+    return {
+        patient,
+        loading,
+        error: listError || fetchError,
     }
 }

@@ -1,6 +1,7 @@
 // src/components/patients/PatientCard.jsx
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAppContext } from '../../context/AppContext.jsx'
 import RiskBadge from './RiskBadge.jsx'
 import styles from './PatientCard.module.css'
 
@@ -11,6 +12,7 @@ import styles from './PatientCard.module.css'
  */
 export default function PatientCard({ patient }) {
   const navigate = useNavigate()
+  const { setCurrentPatient } = useAppContext()
   const { teiUid, name, age, village, facility, gestationalAge, totalVisits, assessment } = patient
   const riskLevel = assessment?.level || 'normal'
   const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
@@ -30,7 +32,7 @@ export default function PatientCard({ patient }) {
   return (
     <button
       className={`${styles.card} ${riskLevelClass}`}
-      onClick={() => navigate(`/patients/${teiUid}`)}
+      onClick={() => { setCurrentPatient(patient); navigate(`/patients/${teiUid}`) }}
       style={{ all: 'unset', cursor: 'pointer', display: 'block', width: '100%' }}
       aria-label={`View patient ${name}`}
     >

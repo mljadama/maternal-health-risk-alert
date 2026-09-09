@@ -4,7 +4,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
-import { usePatients } from '../hooks/usePatients.js'
+import { usePatient } from '../hooks/usePatients.js'
 import { useVisits } from '../hooks/useVisits.js'
 import { useDhis2Config } from '../hooks/useDhis2Config.js'
 import { getRiskLabel } from '../services/riskEngine.js'
@@ -18,17 +18,21 @@ function levelClass(level) {
   return styles.badgeNormal
 }
 
+function formatMalariaResult(result) {
+  if (!result || result === 'Not done') return 'Not done'
+  return result
+}
+
 export default function PatientDetail() {
   const { teiUid } = useParams()
   const navigate = useNavigate()
   const { config } = useDhis2Config()
 
-  const { patients, loading: pLoading, error: pError } = usePatients()
+  const { patient, loading: pLoading, error: pError } = usePatient(teiUid)
   const { visits, chartData, loading: vLoading, error: vError } = useVisits(teiUid)
 
-  const loading = pLoading || vLoading
+  const loading = pLoading || (Boolean(patient) && vLoading)
   const error = pError || vError
-  const patient = patients.find(p => p.teiUid === teiUid)
 
   if (loading) {
     return <div className={styles.page}><div className={styles.empty}>Loading patient...</div></div>
@@ -196,7 +200,7 @@ export default function PatientDetail() {
                         <td className={styles.td}>{v.bpSystolic && v.bpDiastolic ? `${v.bpSystolic}/${v.bpDiastolic}` : '-'}</td>
                         <td className={styles.td}>{v.haemoglobin ?? '-'}</td>
                         <td className={styles.td}>{v.weight ? `${v.weight} kg` : '-'}</td>
-                        <td className={styles.td}>{v.malariaResult?.includes('Positive') ? 'Positive' : 'Negative'}</td>
+                        <td className={styles.td}>{formatMalariaResult(v.malariaResult)}</td>
                         <td className={styles.td}>{v.dangerSigns.length === 0 ? 'None' : `${v.dangerSigns.length} sign(s)`}</td>
                       </tr>
                     ))}

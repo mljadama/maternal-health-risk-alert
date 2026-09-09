@@ -5,6 +5,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { useDashboardData } from '../hooks/useDashboardData.js'
+import { useAppContext } from '../context/AppContext.jsx'
 import { getRiskLabel } from '../services/riskEngine.js'
 import RiskDistributionChart from '../charts/RiskDistributionChart.jsx'
 import CompletionBarChart from '../charts/CompletionBarChart.jsx'
@@ -18,6 +19,7 @@ function levelClass(level) {
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const { setCurrentPatient } = useAppContext()
   const { stats, loading, error } = useDashboardData()
 
   if (error) {
@@ -135,7 +137,7 @@ export default function Dashboard() {
                 </thead>
                 <tbody>
                   {s.alertPatients.map(p => (
-                    <tr key={p.teiUid} className={styles.trClickable} onClick={() => navigate(`/patients/${p.teiUid}`)}>
+                    <tr key={p.teiUid} className={styles.trClickable} onClick={() => { setCurrentPatient(p); navigate(`/patients/${p.teiUid}`) }}>
                       <td className={styles.td}>
                         <strong>{p.name}</strong>
                         <div className={styles.muted}>Age {p.age ?? '-'}</div>
