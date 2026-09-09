@@ -1,9 +1,10 @@
 // src/hooks/usePatients.js
-import { useDataQuery } from '@dhis2/app-runtime'
-import { useMemo, useEffect } from 'react'
+import { useMemo } from 'react'
 import { assessConfiguredRisk } from '../utils/assessWithConfig.js'
+import { useAppContext } from '../context/AppContext.jsx'
 import { useDhis2Config } from './useDhis2Config.js'
 import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
+import { useEngineListQuery } from './useEngineListQuery.js'
 import {
     validateAppSettings,
     buildConfigValidationMessage,
@@ -28,8 +29,74 @@ function normalizeQueryError(error) {
     return error
 }
 
+function asList(payload, nestedKey) {
+    if (Array.isArray(payload)) return payload
+    if (Array.isArray(payload?.[nestedKey])) return payload[nestedKey]
+    if (Array.isArray(payload?.instances)) return payload.instances
+    if (Array.isArray(payload?.trackedEntities)) return payload.trackedEntities
+    if (Array.isArray(payload?.trackedEntityInstances)) return payload.trackedEntityInstances
+    return []
+}
+
+function mergePendingPatients(serverPatients, pendingPatients, config) {
+    if (!pendingPatients?.length) return serverPatients
+
+    const ids = new Set(serverPatients.map(p => p.teiUid))
+    const extras = pendingPatients.filter(draft => {
+        if (draft.teiUid && draft.teiUid !== 'created' && ids.has(draft.teiUid)) {
+            return false
+        }
+        return !serverPatients.some(p =>
+            p.name === draft.name && p.village === draft.village && p.orgUnit === draft.orgUnit
+        )
+    })
+
+    if (!extras.length) return serverPatients
+
+    const mapped = extras.map((draft, index) => {
+        const age = draft.age ?? null
+        const parity = draft.parity ?? 0
+        const assessment = assessConfiguredRisk(
+            config,
+            { age, parity, previousComplications: draft.prevComp },
+            {
+                totalVisits: 0,
+                currentWeek: draft.gestationalAge ?? 0,
+                firstVisitWeek: draft.gestationalAge ?? null,
+                latestBpSystolic: null,
+                latestBpDiastolic: null,
+                latestHaemoglobin: null,
+                latestMalariaResult: null,
+                dangerSigns: [],
+            }
+        )
+
+        return {
+            teiUid: draft.teiUid && draft.teiUid !== 'created' ? draft.teiUid : `pending-${index}`,
+            name: draft.name ?? 'Unknown',
+            age,
+            village: draft.village ?? '—',
+            phoneNumber: draft.phoneNumber ?? '—',
+            parity,
+            prevComp: draft.prevComp,
+            facility: draft.facility ?? '—',
+            orgUnit: draft.orgUnit,
+            enrollmentUid: null,
+            enrollmentDate: draft.enrollmentDate ?? null,
+            gestationalAge: draft.gestationalAge ?? null,
+            totalVisits: 0,
+            lastVisitDate: null,
+            assessment,
+            rawVisits: [],
+        }
+    })
+
+    return [...mapped, ...serverPatients]
+}
+
 export function usePatients() {
     const { config, loading: configLoading } = useDhis2Config()
+    const { pendingPatients } = useAppContext()
     const configValidation = useMemo(() => validateAppSettings(config), [config])
     const configError = useMemo(() => {
         if (configValidation.isValid) {
@@ -65,83 +132,65 @@ export function usePatients() {
     }, [preferredOrgUnitId])
 
     const shouldPauseQueries = configLoading || meLoading || Boolean(configError)
+    const canQuery = !shouldPauseQueries && Boolean(config.program?.id)
 
-    const PATIENTS_QUERY = useMemo(() => ({
-        patients: {
-            resource: 'tracker/trackedEntities',
-            params: {
-                program: config.program.id,
-                ...trackerQueryParams,
-                fields:  'trackedEntity,orgUnit,attributes,enrollments[enrollment,enrolledAt,orgUnit,orgUnitName,status]',
-                page:    1,
-                pageSize: 500,
+    const query = useMemo(() => {
+        if (!canQuery) return null
+        return {
+            patients: {
+                resource: 'tracker/trackedEntities',
+                params: {
+                    program: config.program.id,
+                    ...trackerQueryParams,
+                    fields:  'trackedEntity,orgUnit,attributes,enrollments[enrollment,enrolledAt,orgUnit,orgUnitName,status]',
+                    page:    1,
+                    pageSize: 500,
+                },
             },
-        },
-    }), [config.program.id, trackerQueryParams])
-
-    const EVENTS_QUERY = useMemo(() => ({
-        events: {
-            resource: 'tracker/events',
-            params: {
-                program:  config.program.id,
-                ...trackerQueryParams,
-                fields:   'event,trackedEntity,occurredAt,orgUnit,orgUnitName,dataValues',
-                page:     1,
-                pageSize: 500,
-                order:    'occurredAt:desc',
+            events: {
+                resource: 'tracker/events',
+                params: {
+                    program:  config.program.id,
+                    ...trackerQueryParams,
+                    fields:   'event,trackedEntity,occurredAt,orgUnit,orgUnitName,dataValues',
+                    page:     1,
+                    pageSize: 500,
+                    order:    'occurredAt:desc',
+                },
             },
-        },
-    }), [config.program.id, trackerQueryParams])
-
-    const ORG_UNITS_QUERY = useMemo(() => ({
-        orgUnits: {
-            resource: 'organisationUnits',
-            params: {
-                fields:  'id,displayName',
-                userOnly: true,
-                pageSize: 500,
+            orgUnits: {
+                resource: 'organisationUnits',
+                params: {
+                    fields:  'id,displayName',
+                    userOnly: true,
+                    pageSize: 500,
+                },
             },
-        },
-    }), [])
-
-    const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: true })
-    const { data: eData, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: true })
-    const { data: ouData, loading: ol, refetch: ro } = useDataQuery(ORG_UNITS_QUERY, { lazy: true })
-
-    useEffect(() => {
-        if (!shouldPauseQueries && config.program?.id) {
-            rp()
-            re()
-            ro()
         }
-    }, [shouldPauseQueries, config.program?.id])
+    }, [canQuery, config.program.id, trackerQueryParams])
 
-    const loading = (pl || ol || configLoading || meLoading) && !pData
-    const queryError = normalizeQueryError(meError || pe || ee)
+    const { data, loading: fetchLoading, error: pe, refetch } = useEngineListQuery({
+        enabled: canQuery,
+        query,
+    })
+
+    const loading = configLoading || meLoading || (canQuery && fetchLoading && !data && !pendingPatients.length)
+    const queryError = normalizeQueryError(meError || pe)
     const error = configError || queryError
 
     const ouMap = useMemo(() => {
         const map = {}
-        const list = ouData?.orgUnits?.organisationUnits ?? (Array.isArray(ouData?.orgUnits) ? ouData.orgUnits : [])
+        const list = data?.orgUnits?.organisationUnits ?? (Array.isArray(data?.orgUnits) ? data.orgUnits : [])
         list.forEach(ou => {
             if (ou?.id) map[ou.id] = ou.displayName
         })
         return map
-    }, [ouData])
+    }, [data])
 
     const patients = useMemo(() => {
-        if (!pData) return []
+        const rawTeis = asList(data?.patients, 'trackedEntities')
+        const events = asList(data?.events, 'events')
 
-        const rawTeis = Array.isArray(pData.patients)
-            ? pData.patients
-            : (pData.patients?.trackedEntities ?? pData.patients?.instances ?? pData.patients?.trackedEntityInstances ?? [])
-        const events = Array.isArray(eData?.events)
-            ? eData.events
-            : (eData?.events?.events ?? eData?.events?.instances ?? [])
-
-        // Some DHIS2 responses can include repeated tracked entities across
-        // enrollments/pages. Keep the last seen entry per UID so each
-        // patient renders once.
         const teis = Array.from(
             rawTeis.reduce((acc, tei) => {
                 const id = tei?.trackedEntity || tei?.trackedEntityInstance || tei?.id
@@ -164,7 +213,7 @@ export function usePatients() {
             arr.sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt))
         )
 
-        return teis.map(tei => {
+        const fromServer = teis.map(tei => {
             const id         = tei.trackedEntity
             const visits     = byTEI[id] ?? []
             const latest     = visits[0] ?? null
@@ -181,7 +230,6 @@ export function usePatients() {
                     .split(',').map(s => s.trim()).filter(Boolean)
                 : []
 
-            // Resolve facility name from multiple sources
             const facilityOrgUid = enrollment.orgUnit ?? tei.orgUnit
             const facilityName   =
                 enrollment.orgUnitName ||
@@ -223,13 +271,15 @@ export function usePatients() {
                 rawVisits:      visits,
             }
         })
-    }, [pData, eData, ouMap, attributes, dataElements, config])
+
+        return mergePendingPatients(fromServer, pendingPatients, config)
+    }, [data, ouMap, attributes, dataElements, config, pendingPatients])
 
     return {
         patients,
         loading,
         error,
         configReady: !shouldPauseQueries,
-        refetch: () => { if (!shouldPauseQueries) { rp(); re(); ro() } },
+        refetch,
     }
 }

@@ -1,10 +1,10 @@
 // src/hooks/useAlerts.js
-import { useDataQuery } from '@dhis2/app-runtime'
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { assessRisk, RISK_LEVELS } from '../services/riskEngine.js'
 import { useDhis2Config } from './useDhis2Config.js'
 import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
 import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
+import { useEngineListQuery } from './useEngineListQuery.js'
 
 // NOTE: Pagination is implemented to avoid performance issues on large deployments.
 // pageSize: 500 balances between memory usage and API calls. Can be adjusted based on system capacity.
@@ -47,78 +47,70 @@ export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODER
     }, [preferredOrgUnitId])
 
     const shouldPauseQueries = configLoading || meLoading || Boolean(configError)
+    const canQuery = !shouldPauseQueries && Boolean(config.program?.id)
 
-    const PATIENTS_QUERY = useMemo(() => ({
-        patients: {
-            resource: 'tracker/trackedEntities',
-            params: {
-                program:   config.program.id,
-                ...trackerQueryParams,
-                fields:    'trackedEntity,orgUnit,attributes,enrollments[enrollment,enrolledAt,orgUnit,orgUnitName,status]',
-                page:      1,
-                pageSize:  500,
-                order:     'enrolledAt:desc',
+    const query = useMemo(() => {
+        if (!canQuery) return null
+        return {
+            patients: {
+                resource: 'tracker/trackedEntities',
+                params: {
+                    program:   config.program.id,
+                    ...trackerQueryParams,
+                    fields:    'trackedEntity,orgUnit,attributes,enrollments[enrollment,enrolledAt,orgUnit,orgUnitName,status]',
+                    page:      1,
+                    pageSize:  500,
+                    order:     'enrolledAt:desc',
+                },
             },
-        },
-    }), [config.program.id, trackerQueryParams])
-
-    const EVENTS_QUERY = useMemo(() => ({
-        events: {
-            resource: 'tracker/events',
-            params: {
-                program:      config.program.id,
-                programStage: config.programStage.id,
-                ...trackerQueryParams,
-                fields:       'event,trackedEntity,occurredAt,orgUnit,orgUnitName,dataValues',
-                page:         1,
-                pageSize:     500,
-                order:        'occurredAt:desc',
+            events: {
+                resource: 'tracker/events',
+                params: {
+                    program:      config.program.id,
+                    programStage: config.programStage.id,
+                    ...trackerQueryParams,
+                    fields:       'event,trackedEntity,occurredAt,orgUnit,orgUnitName,dataValues',
+                    page:         1,
+                    pageSize:     500,
+                    order:        'occurredAt:desc',
+                },
             },
-        },
-    }), [config.program.id, config.programStage.id, trackerQueryParams])
-
-    const ORG_UNITS_QUERY = useMemo(() => ({
-        orgUnits: {
-            resource: 'organisationUnits',
-            params: {
-                fields: 'id,displayName',
-                pageSize: 500,
+            orgUnits: {
+                resource: 'organisationUnits',
+                params: {
+                    fields: 'id,displayName',
+                    pageSize: 500,
+                },
             },
-        },
-    }), [])
-
-    const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: true })
-    const { data: eData, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: true })
-    const { data: ouData, loading: ol } = useDataQuery(ORG_UNITS_QUERY, { lazy: configLoading || meLoading })
-
-    useEffect(() => {
-        if (!shouldPauseQueries && config.program?.id) {
-            rp()
-            re()
         }
-    }, [shouldPauseQueries, config.program?.id])
+    }, [canQuery, config.program.id, config.programStage.id, trackerQueryParams])
 
-    const loading = (pl || ol || configLoading || meLoading) && !pData
-    const error   = configError || meError || pe || ee
+    const { data, loading: fetchLoading, error: pe, refetch } = useEngineListQuery({
+        enabled: canQuery,
+        query,
+    })
+
+    const loading = configLoading || meLoading || (canQuery && fetchLoading && !data)
+    const error   = configError || meError || pe
 
     const ouMap = useMemo(() => {
         const map = {}
-        const list = ouData?.orgUnits?.organisationUnits ?? (Array.isArray(ouData?.orgUnits) ? ouData.orgUnits : [])
+        const list = data?.orgUnits?.organisationUnits ?? (Array.isArray(data?.orgUnits) ? data.orgUnits : [])
         list.forEach(ou => {
             if (ou?.id) map[ou.id] = ou.displayName
         })
         return map
-    }, [ouData])
+    }, [data])
 
     const alerts = useMemo(() => {
-        if (!pData) return []
+        if (!data) return []
 
-        const rawTeis = Array.isArray(pData.patients)
-            ? pData.patients
-            : (pData.patients?.trackedEntities ?? pData.patients?.instances ?? pData.patients?.trackedEntityInstances ?? [])
-        const events = Array.isArray(eData?.events)
-            ? eData.events
-            : (eData?.events?.events ?? eData?.events?.instances ?? [])
+        const rawTeis = Array.isArray(data.patients)
+            ? data.patients
+            : (data.patients?.trackedEntities ?? data.patients?.instances ?? data.patients?.trackedEntityInstances ?? [])
+        const events = Array.isArray(data.events)
+            ? data.events
+            : (data.events?.events ?? data.events?.instances ?? [])
 
         const byTEI = {}
         events.forEach(ev => {
@@ -193,7 +185,7 @@ export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODER
             })
             .filter(p => includeLevels.includes(p.assessment.level))
             .sort((a, b) => b.assessment.score - a.assessment.score)
-    }, [pData, eData, ouMap, includeLevels, config])
+    }, [data, ouMap, includeLevels, config, attributes, dataElements])
 
-    return { alerts, loading, error, refetch: () => { rp(); re() } }
+    return { alerts, loading, error, refetch }
 }

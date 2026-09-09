@@ -1,15 +1,24 @@
 // src/hooks/useDashboardData.js
 // Aggregated stats for the dashboard from DHIS2 v42
 
-import { useDataQuery } from '@dhis2/app-runtime'
-import { useMemo, useEffect } from 'react'
+import { useMemo } from 'react'
 import { assessRisk, RISK_LEVELS } from '../services/riskEngine.js'
+import { useAppContext } from '../context/AppContext.jsx'
 import { useDhis2Config } from './useDhis2Config.js'
 import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
 import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
+import { useEngineListQuery } from './useEngineListQuery.js'
 
 const getAttr = (list = [], uid) => list.find(a => a.attribute === uid)?.value ?? null
 const getDV   = (list = [], uid) => list.find(d => d.dataElement === uid)?.value ?? null
+
+function asList(payload, nestedKey) {
+    if (Array.isArray(payload)) return payload
+    if (Array.isArray(payload?.[nestedKey])) return payload[nestedKey]
+    if (Array.isArray(payload?.instances)) return payload.instances
+    if (Array.isArray(payload?.trackedEntities)) return payload.trackedEntities
+    return []
+}
 
 function buildMonthlyTrend(events, dataElements) {
     const buckets = {}
@@ -56,6 +65,7 @@ function buildCompletion(patients, byTEI) {
 
 export function useDashboardData() {
     const { config, loading: configLoading } = useDhis2Config()
+    const { pendingPatients } = useAppContext()
     const configValidation = useMemo(() => validateAppSettings(config), [config])
     const {
         preferredOrgUnitId,
@@ -92,55 +102,48 @@ export function useDashboardData() {
     const programId = config.program?.id
     const programStageId = config.programStage?.id
     const shouldPauseQueries = configLoading || meLoading || Boolean(configError) || !programId
+    const canQuery = !shouldPauseQueries
 
-    const PATIENTS_QUERY = useMemo(() => ({
-        patients: {
-            resource: 'tracker/trackedEntities',
-            params: {
-                program: programId,
-                ...trackerQueryParams,
-                fields:  'trackedEntity,trackedEntityInstance,id,attributes,enrollments[enrollment,enrolledAt,orgUnit]',
-                page: 1,
-                pageSize: 500,
+    const query = useMemo(() => {
+        if (!canQuery) return null
+        return {
+            patients: {
+                resource: 'tracker/trackedEntities',
+                params: {
+                    program: programId,
+                    ...trackerQueryParams,
+                    fields:  'trackedEntity,trackedEntityInstance,id,attributes,enrollments[enrollment,enrolledAt,orgUnit]',
+                    page: 1,
+                    pageSize: 500,
+                },
             },
-        },
-    }), [programId, trackerQueryParams])
-
-    const EVENTS_QUERY = useMemo(() => ({
-        events: {
-            resource: 'tracker/events',
-            params: {
-                program:      programId,
-                programStage: programStageId,
-                ...trackerQueryParams,
-                fields:       'event,trackedEntity,trackedEntityInstance,tei,occurredAt,dataValues',
-                page: 1,
-                pageSize: 500,
+            events: {
+                resource: 'tracker/events',
+                params: {
+                    program:      programId,
+                    programStage: programStageId,
+                    ...trackerQueryParams,
+                    fields:       'event,trackedEntity,trackedEntityInstance,tei,occurredAt,dataValues',
+                    page: 1,
+                    pageSize: 500,
+                },
             },
-        },
-    }), [programId, programStageId, trackerQueryParams])
-
-    const { data: pData, loading: pl, error: pe, refetch: rp } = useDataQuery(PATIENTS_QUERY, { lazy: true })
-    const { data: eData, loading: el, error: ee, refetch: re } = useDataQuery(EVENTS_QUERY, { lazy: true })
-
-    useEffect(() => {
-        if (!shouldPauseQueries) {
-            rp()
-            re()
         }
-    }, [shouldPauseQueries, programId, programStageId])
+    }, [canQuery, programId, programStageId, trackerQueryParams])
 
-    const loading = configLoading || meLoading || (!shouldPauseQueries && (pl || el) && !pData)
-    const error   = configError || meError || (shouldPauseQueries ? null : (pe || ee))
+    const { data, loading: fetchLoading, error: pe } = useEngineListQuery({
+        enabled: canQuery,
+        query,
+    })
+
+    const loading = configLoading || meLoading || (canQuery && fetchLoading && !data && !pendingPatients.length)
+    const error   = configError || meError || pe
 
     const stats = useMemo(() => {
-        if (!pData) return null
+        const teisArr = asList(data?.patients, 'trackedEntities')
+        const eventsArr = asList(data?.events, 'events')
 
-        // Support various DHIS2 versions of payload wrapping
-        const teis = pData.patients?.instances || pData.patients?.trackedEntities || pData.patients || []
-        const events = eData?.events?.instances || eData?.events?.events || eData?.events || []
-        const teisArr = Array.isArray(teis) ? teis : []
-        const eventsArr = Array.isArray(events) ? events : []
+        if (!data && !pendingPatients.length) return null
 
         const byTEI = {}
         eventsArr.forEach(ev => {
@@ -190,6 +193,35 @@ export function useDashboardData() {
             }
         })
 
+        const ids = new Set(patients.map(p => p.teiUid))
+        pendingPatients.forEach(draft => {
+            const already = (draft.teiUid && draft.teiUid !== 'created' && ids.has(draft.teiUid)) ||
+                patients.some(p => p.name === draft.name)
+            if (already) return
+            patients.push({
+                teiUid: draft.teiUid || `pending-${draft.name}`,
+                name: draft.name ?? 'Unknown',
+                age: draft.age ?? null,
+                ga: draft.gestationalAge ?? null,
+                totalVisits: 0,
+                lastVisit: null,
+                assessment: assessRisk(
+                    { age: draft.age, parity: draft.parity, previousComplications: draft.prevComp },
+                    {
+                        totalVisits: 0,
+                        currentWeek: draft.gestationalAge ?? 0,
+                        firstVisitWeek: draft.gestationalAge ?? null,
+                        latestBpSystolic: null,
+                        latestBpDiastolic: null,
+                        latestHaemoglobin: null,
+                        latestMalariaResult: null,
+                        dangerSigns: [],
+                    },
+                    { thresholds: config.thresholds, scores: config.ruleScores }
+                ),
+            })
+        })
+
         const total    = patients.length
         const highRisk = patients.filter(p => p.assessment.level === RISK_LEVELS.HIGH).length
         const moderate = patients.filter(p => p.assessment.level === RISK_LEVELS.MODERATE).length
@@ -209,7 +241,7 @@ export function useDashboardData() {
             riskDistribution: [
                 { name: 'High risk', value: highRisk, color: config.riskColors?.high?.main || '#dc2626' },
                 { name: 'Moderate',  value: moderate, color: config.riskColors?.moderate?.main || '#d97706' },
-                { name: 'Normal',    value: normal,   color: config.riskColors?.normal?.main || '#16a34a' },
+                { name: 'Normal',  value: normal,   color: config.riskColors?.normal?.main || '#16a34a' },
             ],
             monthlyTrend:     buildMonthlyTrend(eventsArr, dataElements),
             completionStages: buildCompletion(patients, byTEI),
@@ -218,7 +250,7 @@ export function useDashboardData() {
                 .sort((a, b) => b.assessment.score - a.assessment.score)
                 .slice(0, 5),
         }
-    }, [pData, eData, config])
+    }, [data, config, pendingPatients, attributes, dataElements])
 
     return { stats, loading, error }
 }

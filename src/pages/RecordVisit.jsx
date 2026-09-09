@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useDataMutation, useDataQuery, useDataEngine } from '@dhis2/app-runtime'
 import { getRiskLabel } from '../services/riskEngine.js'
 import { useDhis2Config } from '../hooks/useDhis2Config.js'
+import { useAppContext } from '../context/AppContext.jsx'
 import { useTrackerOrgUnitScope } from '../hooks/useTrackerOrgUnitScope.js'
 import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
 import { validateVisitForm } from '../utils/validationUtils.js'
@@ -90,6 +91,7 @@ export default function RecordVisit() {
   const { teiUid } = useParams()
   const navigate = useNavigate()
   const engine = useDataEngine()
+  const { notifyTrackerChanged } = useAppContext()
   const { config, loading: configLoading } = useDhis2Config()
   const configValidation = useMemo(() => validateAppSettings(config), [config])
   const {
@@ -228,6 +230,8 @@ export default function RecordVisit() {
       const result = await mutate({ payload })
       const jobId = result?.response?.id
       if (jobId) await pollJob(engine, jobId)
+
+      notifyTrackerChanged()
 
       const risk = assessConfiguredRisk(config, {}, {
         totalVisits: vals.visitNumber,

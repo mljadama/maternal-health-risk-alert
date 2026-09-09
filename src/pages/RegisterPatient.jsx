@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useDataQuery } from '@dhis2/app-runtime'
 import { useRegisterPatient } from '../hooks/useRegisterPatient.js'
 import { useDhis2Config } from '../hooks/useDhis2Config.js'
+import { useAppContext } from '../context/AppContext.jsx'
 import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
 import { validatePatientForm } from '../utils/validationUtils.js'
 import styles from './FormPage.module.css'
@@ -48,6 +49,7 @@ function validate(values, step) {
 
 export default function RegisterPatient() {
   const navigate = useNavigate()
+  const { notifyTrackerChanged } = useAppContext()
   const { config } = useDhis2Config()
   const configValidation = useMemo(() => validateAppSettings(config), [config])
   const configErrorMessage = useMemo(() => {
@@ -107,7 +109,21 @@ export default function RegisterPatient() {
     }
 
     try {
-      await register(vals, vals.orgUnit)
+      const created = await register(vals, vals.orgUnit)
+      const savedFacilityName = orgUnits.find(o => o.id === vals.orgUnit)?.displayName || vals.orgUnit
+      notifyTrackerChanged({
+        teiUid: created?.teiUid,
+        name: vals.fullName,
+        age: Number(vals.age) || null,
+        village: vals.village || '—',
+        phoneNumber: String(vals.phoneNumber || '').trim() || '—',
+        parity: Number(vals.parity) || 0,
+        prevComp: vals.previousComplications,
+        facility: savedFacilityName,
+        orgUnit: vals.orgUnit,
+        enrollmentDate: new Date().toISOString().slice(0, 10),
+        gestationalAge: Number(vals.gestationalAge) || null,
+      })
       setSaved(true)
     } catch (err) {
       setFormError('Registration failed: ' + err.message)

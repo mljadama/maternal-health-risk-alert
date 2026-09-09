@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { usePatients } from '../hooks/usePatients.js'
 import { useDhis2Config } from '../hooks/useDhis2Config.js'
@@ -17,10 +17,6 @@ export default function PatientList() {
   const { config } = useDhis2Config()
   const { patients, loading, error, refetch } = usePatients()
   const colors = getConfiguredRiskColors(config)
-
-  useEffect(() => {
-    refetch()
-  }, [])
 
   const [search, setSearch] = useState('')
   const [riskFilter, setRiskFilter] = useState('all')
@@ -156,7 +152,10 @@ export default function PatientList() {
                 filtered.map(p => {
                   const cfg = colors[p.assessment.level]
                   return (
-                    <tr key={p.teiUid} className={styles.trClickable} onClick={() => navigate(`/patients/${p.teiUid}`)} style={{ borderLeft: `3px solid ${cfg.main}` }}>
+                    <tr key={p.teiUid} className={styles.trClickable} onClick={() => {
+                      if (String(p.teiUid).startsWith('pending-')) return
+                      navigate(`/patients/${p.teiUid}`)
+                    }} style={{ borderLeft: `3px solid ${cfg.main}` }}>
                       <td className={styles.td}>
                         <strong>{p.name}</strong>
                         <div className={styles.muted}>Age {p.age ?? '-'} - {p.phoneNumber}</div>
@@ -174,7 +173,13 @@ export default function PatientList() {
                           : '-'}
                       </td>
                       <td className={styles.td}>
-                        <button className={styles.btn} onClick={e => { e.stopPropagation(); navigate(`/visit/${p.teiUid}`) }}>Visit</button>
+                        <button
+                          className={styles.btn}
+                          disabled={String(p.teiUid).startsWith('pending-')}
+                          onClick={e => { e.stopPropagation(); navigate(`/visit/${p.teiUid}`) }}
+                        >
+                          Visit
+                        </button>
                       </td>
                     </tr>
                   )

@@ -2,10 +2,10 @@
 // Fetches all ANC visit events for a specific patient
 // GET /api/tracker/events?trackedEntity=<uid>
 
-import { useDataQuery } from '@dhis2/app-runtime'
 import { useMemo } from 'react'
 import { useDhis2Config } from './useDhis2Config.js'
 import { useTrackerOrgUnitScope } from './useTrackerOrgUnitScope.js'
+import { useEngineListQuery } from './useEngineListQuery.js'
 import { validateAppSettings, buildConfigValidationMessage } from '../config/appSettings.js'
 
 const getDV = (list = [], uid) =>
@@ -47,33 +47,38 @@ export function useVisits(teiUid) {
     }, [preferredOrgUnitId])
 
     const shouldPauseQueries = !teiUid || configLoading || meLoading || Boolean(configError)
+    const canQuery = !shouldPauseQueries && Boolean(config.program?.id)
 
-    const VISITS_QUERY = useMemo(() => ({
-        visits: {
-            resource: 'tracker/events',
-            params: ({ teiUid }) => ({
-                program:       config.program.id,
-                programStage:  config.programStage.id,
-                trackedEntity: teiUid,
-                ...trackerQueryParams,
-                fields:        'event,trackedEntity,occurredAt,orgUnit,orgUnitName,status,dataValues',
-                order:         'occurredAt:asc',
-                page:          1,
-                pageSize:      500,
-            }),
-        },
-    }), [config.program.id, config.programStage.id, teiUid, trackerQueryParams])
+    const query = useMemo(() => {
+        if (!canQuery) return null
+        return {
+            visits: {
+                resource: 'tracker/events',
+                params: {
+                    program:       config.program.id,
+                    programStage:  config.programStage.id,
+                    trackedEntity: teiUid,
+                    ...trackerQueryParams,
+                    fields:        'event,trackedEntity,occurredAt,orgUnit,orgUnitName,status,dataValues',
+                    order:         'occurredAt:asc',
+                    page:          1,
+                    pageSize:      500,
+                },
+            },
+        }
+    }, [canQuery, config.program.id, config.programStage.id, teiUid, trackerQueryParams])
 
-    const { data, loading, error, refetch } = useDataQuery(VISITS_QUERY, {
-        variables: { teiUid },
-        lazy:      shouldPauseQueries,
+    const { data, loading: fetchLoading, error, refetch } = useEngineListQuery({
+        enabled: canQuery,
+        query,
     })
 
     const resolvedError = configError || meError || error
 
     const visits = useMemo(() => {
         if (!data) return []
-        return (data.visits?.events ?? []).map((ev, idx) => ({
+        const list = data.visits?.events ?? data.visits?.instances ?? (Array.isArray(data.visits) ? data.visits : [])
+        return list.map((ev, idx) => ({
             eventUid:      ev.event,
             eventDate:     ev.occurredAt,
             facility:      ev.orgUnitName ?? '—',
@@ -91,7 +96,7 @@ export function useVisits(teiUid) {
             nurseNotes:    getDV(ev.dataValues, dataElements.nurseNotes),
             nextVisitDate: getDV(ev.dataValues, dataElements.nextVisitDate),
         }))
-    }, [data])
+    }, [data, dataElements])
 
     const chartData = useMemo(() => visits.map(v => ({
         label:  v.eventDate ? new Date(v.eventDate).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' }) : `V${v.visitNumber}`,
@@ -105,7 +110,7 @@ export function useVisits(teiUid) {
     return {
         visits,
         chartData,
-        loading: loading || configLoading || meLoading,
+        loading: configLoading || meLoading || (canQuery && fetchLoading && !data),
         error: resolvedError,
         refetch,
     }

@@ -137,6 +137,19 @@ export function AppProvider({ children }) {
     return saveAppSettings(DEFAULT_APP_SETTINGS)
   }, [saveAppSettings])
 
+  const [trackerEpoch, setTrackerEpoch] = useState(0)
+  const [pendingPatients, setPendingPatients] = useState([])
+  const notifyTrackerChanged = useCallback((draftPatient) => {
+    setTrackerEpoch(Date.now())
+    if (draftPatient && typeof draftPatient === 'object') {
+      setPendingPatients(prev => {
+        const id = draftPatient.teiUid
+        const rest = id ? prev.filter(p => p.teiUid !== id) : prev
+        return [draftPatient, ...rest]
+      })
+    }
+  }, [])
+
   const value = {
     // User
     user,
@@ -162,6 +175,10 @@ export function AppProvider({ children }) {
     notification,
     notify,
     closeNotification,
+
+    trackerEpoch,
+    pendingPatients,
+    notifyTrackerChanged,
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
