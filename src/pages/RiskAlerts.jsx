@@ -118,10 +118,6 @@ export default function RiskAlerts() {
     setOpenMap(prev => ({ ...prev, [id]: !prev[id] }))
   }
 
-  if (loading) {
-    return <div className={styles.page}><div className={styles.empty}>Loading risk alerts...</div></div>
-  }
-
   if (error) {
     return <div className={styles.page}><div className={styles.alertBox}>Failed to load alerts: {error.message}</div></div>
   }
@@ -131,9 +127,16 @@ export default function RiskAlerts() {
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Risk Alerts</h1>
-          <p className={styles.subtitle}>Pregnant women requiring elevated monitoring or immediate action</p>
+          <p className={styles.subtitle}>
+            {loading ? 'Loading risk alerts...' : 'Pregnant women requiring elevated monitoring or immediate action'}
+          </p>
         </div>
       </div>
+
+      {loading ? (
+        <div className={styles.empty}>Loading risk alerts...</div>
+      ) : (
+        <>
 
       <div className={styles.kpiGrid} style={{ marginBottom: 10 }}>
         <div className={styles.kpi}>
@@ -220,6 +223,8 @@ export default function RiskAlerts() {
           Showing {filtered.length} of {alerts.length} alerts - click any row to expand details
         </div>
       </div>
+        </>
+      )}
     </div>
   )
 }

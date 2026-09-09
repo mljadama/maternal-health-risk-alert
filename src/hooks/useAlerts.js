@@ -85,12 +85,12 @@ export function useAlerts({ includeLevels = [RISK_LEVELS.HIGH, RISK_LEVELS.MODER
         }
     }, [canQuery, config.program.id, config.programStage.id, trackerQueryParams])
 
-    const { data, loading: fetchLoading, error: pe, refetch } = useEngineListQuery({
+    const { data, error: pe, refetch } = useEngineListQuery({
         enabled: canQuery,
         query,
     })
 
-    const loading = configLoading || meLoading || (canQuery && fetchLoading && !data)
+    const loading = configLoading || meLoading || (canQuery && !data && !pe)
     const error   = configError || meError || pe
 
     const ouMap = useMemo(() => {

@@ -68,7 +68,7 @@ export function useVisits(teiUid) {
         }
     }, [canQuery, config.program.id, config.programStage.id, teiUid, trackerQueryParams])
 
-    const { data, loading: fetchLoading, error, refetch } = useEngineListQuery({
+    const { data, error, refetch } = useEngineListQuery({
         enabled: canQuery,
         query,
     })
@@ -110,7 +110,7 @@ export function useVisits(teiUid) {
     return {
         visits,
         chartData,
-        loading: configLoading || meLoading || (canQuery && fetchLoading && !data),
+        loading: configLoading || meLoading || (canQuery && !data && !error),
         error: resolvedError,
         refetch,
     }

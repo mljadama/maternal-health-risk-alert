@@ -4,7 +4,7 @@
 // and any cross-page data that multiple components need to share.
 // ─────────────────────────────────────────────────────────────
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
 import { useDataQuery, useDataEngine, useDataMutation } from '@dhis2/app-runtime'
 import {
   APP_SETTINGS_NAMESPACE,
@@ -18,7 +18,14 @@ import {
 const ME_QUERY = {
   me: {
     resource: 'me',
-    params: { fields: 'id,displayName,email,organisationUnits[id,displayName,level]' },
+    params: {
+      fields: [
+        'id', 'displayName', 'email',
+        'organisationUnits[id,displayName,level]',
+        'dataViewOrganisationUnits[id]',
+        'teiSearchOrganisationUnits[id]',
+      ].join(','),
+    },
   },
 }
 
@@ -103,6 +110,23 @@ export function AppProvider({ children }) {
   const user     = meData?.me ?? null
   const orgUnits = ouData?.orgUnits?.organisationUnits ?? []
 
+  // ── Tracker org-unit scope (computed once, shared across pages) ──
+  const trackerOrgUnitIds = useMemo(() => {
+    if (!user) return []
+    const byPriority = [
+      ...(user.teiSearchOrganisationUnits ?? []),
+      ...(user.dataViewOrganisationUnits ?? []),
+    ]
+    return Array.from(new Set(byPriority.map(ou => ou?.id).filter(Boolean)))
+  }, [user])
+
+  const fallbackOrgUnitIds = useMemo(() => {
+    if (!user) return []
+    return Array.from(new Set((user.organisationUnits ?? []).map(ou => ou?.id).filter(Boolean)))
+  }, [user])
+
+  const preferredOrgUnitId = trackerOrgUnitIds[0] ?? fallbackOrgUnitIds[0] ?? null
+
   // Auto-select first org unit if none selected
   React.useEffect(() => {
     if (!selectedOrgUnit && orgUnits.length > 0) {
@@ -175,6 +199,11 @@ export function AppProvider({ children }) {
     notification,
     notify,
     closeNotification,
+
+    // Tracker org-unit scope (shared – no per-page /api/me re-fetch)
+    trackerOrgUnitIds,
+    fallbackOrgUnitIds,
+    preferredOrgUnitId,
 
     trackerEpoch,
     pendingPatients,

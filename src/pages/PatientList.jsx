@@ -69,10 +69,6 @@ export default function PatientList() {
     normal: patients.filter(p => p.assessment.level === 'normal').length,
   }
 
-  if (loading) {
-    return <div className={styles.page}><div className={styles.empty}>Loading patients...</div></div>
-  }
-
   if (error) {
     return (
       <div className={styles.page}>
@@ -87,7 +83,11 @@ export default function PatientList() {
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>Patients</h1>
-          <p className={styles.subtitle}>{patients.length} registered - {counts.high} high risk - {counts.moderate} moderate</p>
+          <p className={styles.subtitle}>
+            {loading
+              ? 'Loading patients...'
+              : `${patients.length} registered - ${counts.high} high risk - ${counts.moderate} moderate`}
+          </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className={styles.btn} onClick={refetch}>Refresh</button>
@@ -142,7 +142,9 @@ export default function PatientList() {
                 <tr>
                   <td className={styles.td} colSpan={8}>
                     <div className={styles.empty}>
-                      {patients.length === 0
+                      {loading
+                        ? 'Loading patients...'
+                        : patients.length === 0
                         ? 'No patients registered yet. Register your first patient.'
                         : `No patients match ${search}`}
                     </div>

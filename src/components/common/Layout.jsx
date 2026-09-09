@@ -14,6 +14,38 @@ const NAV_ITEMS = [
     { label: 'Configuration',    icon: '⚙️', path: '/configuration' },
 ]
 
+class RouteErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props)
+        this.state = { error: null }
+    }
+
+    static getDerivedStateFromError(error) {
+        return { error }
+    }
+
+    componentDidUpdate(prevProps) {
+        if (this.props.resetKey !== prevProps.resetKey && this.state.error) {
+            this.setState({ error: null })
+        }
+    }
+
+    render() {
+        if (this.state.error) {
+            return (
+                <div style={{ padding: 24 }}>
+                    <h1 style={{ fontSize: 20, margin: '0 0 8px' }}>This page failed to load</h1>
+                    <p style={{ color: '#64748b' }}>{this.state.error.message || 'An unexpected error occurred.'}</p>
+                    <button type="button" onClick={() => window.location.reload()}>
+                        Refresh
+                    </button>
+                </div>
+            )
+        }
+        return this.props.children
+    }
+}
+
 /**
  * Sidebar Content Component
  * Navigation menu for the application
@@ -76,6 +108,7 @@ function SidebarContent({ onNavigate }) {
  * Main app layout with sidebar navigation and responsive mobile menu
  */
 export default function Layout({ children }) {
+    const location = useLocation()
     const [isMobile, setIsMobile] = useState(window.innerWidth < MOBILE_BREAKPOINT)
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -146,7 +179,9 @@ export default function Layout({ children }) {
                     marginTop: isMobile ? `${DHIS2_HEADER_HEIGHT + 56}px` : `${DHIS2_HEADER_HEIGHT}px`,
                 }}
             >
-                {children}
+                <RouteErrorBoundary resetKey={location.pathname}>
+                    {children}
+                </RouteErrorBoundary>
             </main>
         </div>
     )

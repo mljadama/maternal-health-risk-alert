@@ -131,12 +131,12 @@ export function useDashboardData() {
         }
     }, [canQuery, programId, programStageId, trackerQueryParams])
 
-    const { data, loading: fetchLoading, error: pe } = useEngineListQuery({
+    const { data, error: pe } = useEngineListQuery({
         enabled: canQuery,
         query,
     })
 
-    const loading = configLoading || meLoading || (canQuery && fetchLoading && !data && !pendingPatients.length)
+    const loading = configLoading || meLoading || (canQuery && !data && !pe && !pendingPatients.length)
     const error   = configError || meError || pe
 
     const stats = useMemo(() => {

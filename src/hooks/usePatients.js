@@ -169,12 +169,12 @@ export function usePatients() {
         }
     }, [canQuery, config.program.id, trackerQueryParams])
 
-    const { data, loading: fetchLoading, error: pe, refetch } = useEngineListQuery({
+    const { data, error: pe, refetch } = useEngineListQuery({
         enabled: canQuery,
         query,
     })
 
-    const loading = configLoading || meLoading || (canQuery && fetchLoading && !data && !pendingPatients.length)
+    const loading = configLoading || meLoading || (canQuery && !data && !pe && !pendingPatients.length)
     const queryError = normalizeQueryError(meError || pe)
     const error = configError || queryError
 

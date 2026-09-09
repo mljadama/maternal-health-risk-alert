@@ -20,10 +20,6 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const { stats, loading, error } = useDashboardData()
 
-  if (loading) {
-    return <div className={styles.page}><div className={styles.empty}>Loading dashboard...</div></div>
-  }
-
   if (error) {
     return <div className={styles.page}><div className={styles.alertBox}>Failed to load dashboard: {error.message}</div></div>
   }
@@ -51,12 +47,18 @@ export default function Dashboard() {
         <div>
           <h1 className={styles.title}>Maternal Health Dashboard</h1>
           <p className={styles.subtitle}>
-            {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            {loading
+              ? 'Loading dashboard...'
+              : new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
-        {s.total === 0 && <span className={`${styles.chip} ${styles.badgeNormal}`}>No patients yet</span>}
+        {!loading && s.total === 0 && <span className={`${styles.chip} ${styles.badgeNormal}`}>No patients yet</span>}
       </div>
 
+      {loading ? (
+        <div className={styles.empty}>Loading dashboard...</div>
+      ) : (
+        <>
       <div className={styles.kpiGrid}>
         <div className={styles.kpi}>
           <p className={styles.kpiLabel}>Total pregnancies</p>
@@ -161,6 +163,8 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   )
 }

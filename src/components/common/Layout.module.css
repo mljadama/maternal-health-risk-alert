@@ -2,6 +2,7 @@
 
 .root {
   display: flex;
+  min-height: 100vh;
   height: 100%;
 }
 
@@ -196,6 +197,8 @@
 
 .content {
   flex: 1;
+  min-width: 0;
+  min-height: calc(100vh - 48px);
   overflow-y: auto;
   background-color: #ffffff;
 }
