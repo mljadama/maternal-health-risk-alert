@@ -1,6 +1,6 @@
 {
     "name": "maternal-health-risk-alert",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "title": "Maternal Health Risk Alert",
     "description": "Antenatal care risk screening and patient tracking for DHIS2.",
     "long_description": "Maternal Health Risk Alert helps antenatal care teams screen pregnancies for risk using DHIS2 tracker data and evidence-based rules.",

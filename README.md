@@ -24,7 +24,7 @@ Staff can register patients, record visits, view trends, and work from a risk-al
 
 ## Install from App Hub
 
-1. Open [DHIS2 App Hub](https://apps.dhis2.org/?query=Maternal%20Health%20Risk%20Alert) and install **Maternal Health Risk Alert** (v1.0.3 or later).
+1. Open [DHIS2 App Hub](https://apps.dhis2.org/?query=Maternal%20Health%20Risk%20Alert) and install **Maternal Health Risk Alert** (v1.0.4 or later).
 2. In DHIS2, open **App Management** and confirm the app is installed.
 3. Open the app from the DHIS2 apps menu.
 4. Complete [configuration](#configure-the-app) before registering patients.
@@ -172,7 +172,7 @@ The zip is written under `build/bundle/`. Install it in DHIS2 **App Management**
 
 ```bash
 curl -u "admin:district" -X POST "http://localhost:8080/api/apps" \
-  -F "file=@build/bundle/Maternal Health Risk Alert-1.0.3.zip"
+  -F "file=@build/bundle/Maternal Health Risk Alert-1.0.4.zip"
 ```
 
 Replace the URL, username, and password for your server.
